@@ -82,18 +82,18 @@ pub struct QueryResult {
 
 impl QueryResult {
     /// Gets the three-gram from the database.
-    /// 
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `session` - The ScyllaDB session.
     /// * `input` - The input that contains the three-gram.
-    /// 
+    ///
     /// # Returns
-    /// 
+    ///
     /// A `Result` containing the `QueryResult` if the query is successful, otherwise a `String` with the error message.
-    /// 
+    ///
     /// # Errors
-    /// 
+    ///
     /// If the query can not be executed, a `String` with the error message will be returned.
     /// If the query does not return any results, a `QueryResult` with `None` will be returned.
     pub async fn get_one(session: &Session, input: ThreeGramInput) -> Result<Self, String> {

@@ -1,23 +1,23 @@
 use actix_cors::Cors;
 use actix_web::{web::Data, App, HttpServer};
-use dotenv::dotenv;
-use listenfd::ListenFd;
-use std::env;
 use context_analyzer::{
     db,
     three_grams::routers::{self, AppData},
 };
+use dotenv::dotenv;
+use listenfd::ListenFd;
+use std::env;
 
 /// The main function of the application.
-/// 
+///
 /// This function initializes the application and starts the server.
-/// 
+///
 /// # Returns
-/// 
+///
 /// A `std::io::Result` containing the result of the function.
-/// 
+///
 /// # Errors
-/// 
+///
 /// If the server fails to start, an error is returned.
 #[actix_rt::main]
 async fn main() -> std::io::Result<()> {
