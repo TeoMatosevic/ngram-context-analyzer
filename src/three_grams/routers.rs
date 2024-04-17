@@ -1,6 +1,8 @@
-use crate::error_handler::HttpError;
-use crate::parse_varying_indexes;
-use crate::three_grams::model::{ThreeGramInput, VaryingQueryResult};
+use crate::{
+    error_handler::HttpError,
+    parse_varying_indexes,
+    three_grams::model::{ThreeGramInput, VaryingQueryResult},
+};
 use actix_web::{get, web, HttpResponse};
 use std::collections::HashMap;
 
