@@ -3,6 +3,18 @@ use scylla::{
     Session, SessionBuilder,
 };
 
+pub static GET_BY_ALL: &str =
+    "SELECT * FROM n_grams.three_grams_1_2_pk WHERE word_1 = ? AND word_2 = ? AND word_3 = ?";
+
+pub static GET_BY_SECOND_AND_THIRD: &str =
+    "SELECT word_1, freq FROM n_grams.three_grams_2_3_pk WHERE word_2 = ? AND word_3 = ?";
+
+pub static GET_BY_FIRST_AND_THIRD: &str =
+    "SELECT word_2, freq FROM n_grams.three_grams_1_3_pk WHERE word_1 = ? AND word_3 = ?";
+
+pub static GET_BY_FIRST_AND_SECOND: &str =
+    "SELECT word_3, freq FROM n_grams.three_grams_1_2_pk WHERE word_1 = ? AND word_2 = ?";
+
 /// Represents the error that can occur when querying the database.
 ///
 /// # Fields

@@ -1,5 +1,6 @@
 use crate::error_handler::HttpError;
-use crate::three_grams::model::{QueryResult, ThreeGramInput};
+use crate::parse_varying_indexes;
+use crate::three_grams::model::{ThreeGramInput, VaryingQueryResult};
 use actix_web::{get, web, HttpResponse};
 use std::collections::HashMap;
 
@@ -36,22 +37,46 @@ async fn get_three_gram(
 ) -> Result<HttpResponse, HttpError> {
     let session = &data.scy_session;
 
-    let input = match ThreeGramInput::from(query) {
+    let input = match ThreeGramInput::from(&query) {
         Ok(input) => input,
-        Err(_) => return Ok(HttpResponse::BadRequest().json(QueryResult { result: None })),
+        Err(_) => return Ok(HttpResponse::BadRequest().json("Invalid input")),
     };
 
-    let three_gram = QueryResult::get_one(session, input).await;
+    let vary = query.get("vary");
 
-    let three_gram = match three_gram {
-        Ok(three_gram) => three_gram,
-        Err(e) => {
-            eprintln!("{}", e);
-            return Ok(HttpResponse::BadRequest().json(e));
+    match vary {
+        Some(vary) => {
+            let indexes = match parse_varying_indexes(vary) {
+                Ok(indexes) => indexes,
+                Err(err) => return Ok(HttpResponse::BadRequest().json(err)),
+            };
+
+            let result = VaryingQueryResult::get_varying(&session, &input, indexes).await;
+
+            let result = match result {
+                Ok(result) => result,
+                Err(e) => {
+                    eprintln!("{}", e);
+                    return Ok(HttpResponse::BadRequest().json(e));
+                }
+            };
+
+            return Ok(HttpResponse::Ok().json(result));
         }
-    };
+        None => {
+            let three_gram = VaryingQueryResult::get_one(session, input).await;
 
-    Ok(HttpResponse::Ok().json(three_gram))
+            let three_gram = match three_gram {
+                Ok(three_gram) => three_gram,
+                Err(e) => {
+                    eprintln!("{}", e);
+                    return Ok(HttpResponse::BadRequest().json(e));
+                }
+            };
+
+            Ok(HttpResponse::Ok().json(three_gram))
+        }
+    }
 }
 
 /// Initializes the routes for the three-gram module.
