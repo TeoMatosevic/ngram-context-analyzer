@@ -1,7 +1,13 @@
+/// The model module contains the structs and methods for three-grams.
+///
+/// # Modules
+///
+/// * `vary_three_gram` - Contains the varying three-gram.
+/// * `word_freq_pair` - Contains the word frequency pair.
 mod vary_three_gram;
 mod word_freq_pair;
 
-use crate::parse_varying_indexes;
+use crate::{parse_amount, parse_varying_indexes};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -77,6 +83,7 @@ impl ThreeGramInput {
 ///
 /// * `three_gram` - The three-gram.
 /// * `varying_indexes` - The varying indexes.
+/// * `amount` - The amount of words to return.
 ///
 /// # Methods
 ///
@@ -84,6 +91,7 @@ impl ThreeGramInput {
 pub struct HttpQueryInput {
     pub three_gram: ThreeGramInput,
     pub varying_indexes: Option<Vec<i32>>,
+    pub amount: i32,
 }
 
 impl HttpQueryInput {
@@ -110,9 +118,18 @@ impl HttpQueryInput {
             None => None,
         };
 
+        let amount = match query.get("amount") {
+            Some(amount) => match parse_amount(amount) {
+                Ok(amount) => amount,
+                Err(err) => return Err(err),
+            },
+            None => 50,
+        };
+
         Ok(HttpQueryInput {
             three_gram,
             varying_indexes,
+            amount,
         })
     }
 }

@@ -21,6 +21,7 @@ use tokio;
 /// # Methods
 ///
 /// * `new` - Creates a new `VaryingThreeGram`.
+/// * `find_freq` - Finds the frequency of the word in the given vector of `VaryingThreeGram`.
 #[derive(Serialize, Deserialize)]
 pub struct VaryingThreeGram {
     pub index: i32,
@@ -35,6 +36,7 @@ impl VaryingThreeGram {
     ///
     /// * `index` - The index of the word.
     /// * `word` - The word.
+    /// * `solutions` - The solutions of the word.
     ///
     /// # Returns
     ///
@@ -183,6 +185,7 @@ impl VaryingQueryResult {
     /// * `session` - The ScyllaDB session.
     /// * `input` - The three-gram input.
     /// * `varying_indexed` - The varying indexes.
+    /// * `amount` - The amount of solutions to return.
     ///
     /// # Returns
     ///
@@ -191,6 +194,7 @@ impl VaryingQueryResult {
         session: Arc<Session>,
         input: ThreeGramInput,
         varying_indexed: Vec<i32>,
+        amount: i32,
     ) -> Result<VaryingQueryResult, String> {
         let mut vary: Vec<VaryingThreeGram> = vec![];
         let vary_indexes_copy = varying_indexed.clone();
@@ -211,7 +215,8 @@ impl VaryingQueryResult {
                     .enable_all()
                     .build()
                     .unwrap();
-                rt.block_on(process(s, &i, index, tx_clone)).unwrap();
+                rt.block_on(process(s, &i, index, tx_clone, amount))
+                    .unwrap();
             });
             handles.push(handle);
         }
@@ -267,6 +272,7 @@ impl VaryingQueryResult {
 /// * `input` - The three-gram input.
 /// * `index` - The index of the word.
 /// * `tx` - The sender.
+/// * `amount` - The amount of solutions to return.
 ///
 /// # Returns
 ///
@@ -280,9 +286,10 @@ async fn process(
     input: &ThreeGramInput,
     index: i32,
     tx: mpsc::Sender<Result<VaryingThreeGram, String>>,
+    amount: i32,
 ) -> Result<(), std::io::Error> {
     let s = Arc::clone(&session);
-    let solutions = WordFreqPair::from(s, &index, input).await;
+    let solutions = WordFreqPair::from(s, &index, input, amount).await;
     let solutions = match solutions {
         Ok(solutions) => solutions,
         Err(err) => {

@@ -1,7 +1,4 @@
-use crate::{
-    error_handler::HttpError,
-    three_grams::model::VaryingQueryResult,
-};
+use crate::{error_handler::HttpError, three_grams::model::VaryingQueryResult};
 use actix_web::{get, web, HttpResponse};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -33,7 +30,6 @@ pub struct AppData {
 /// # Errors
 ///
 /// If the three-gram is not found, a `HttpError` is returned.
-///
 #[get("/three-gram")]
 async fn get_three_gram(
     query: web::Query<HashMap<String, String>>,
@@ -52,7 +48,8 @@ async fn get_three_gram(
         Some(indexes) => {
             let s = Arc::clone(&session);
 
-            let result = VaryingQueryResult::get_varying(s, input.three_gram, indexes).await;
+            let result =
+                VaryingQueryResult::get_varying(s, input.three_gram, indexes, input.amount).await;
 
             let result = match result {
                 Ok(result) => result,

@@ -49,6 +49,7 @@ impl WordFreqPair {
     /// * `session` - The ScyllaDB session.
     /// * `index` - The index of the word.
     /// * `three_gram` - The three-gram.
+    /// * `amount` - The amount of words to return.
     ///
     /// # Returns
     ///
@@ -63,6 +64,7 @@ impl WordFreqPair {
         session: Arc<Session>,
         index: &i32,
         three_gram: &ThreeGramInput,
+        amount: i32,
     ) -> Result<Vec<WordFreqPair>, String> {
         let query = match index {
             1 => GET_BY_SECOND_AND_THIRD,
@@ -109,9 +111,23 @@ impl WordFreqPair {
 
         result.sort_by(|a, b| b.frequency.cmp(&a.frequency));
 
+        if amount >= 0 {
+            result.truncate(amount as usize);
+        }
+
         Ok(result)
     }
 
+    /// Finds the word in the given vector of `WordFreqPair`.
+    ///
+    /// # Arguments
+    ///
+    /// * `pairs` - The vector of `WordFreqPair`.
+    /// * `word` - The word to find.
+    ///
+    /// # Returns
+    ///
+    /// An `Option` containing the `WordFreqPair` if the word is found, otherwise `None`.
     pub fn find<'a>(pairs: &'a Vec<WordFreqPair>, word: &str) -> Option<&'a WordFreqPair> {
         pairs.iter().find(|pair| pair.word == word)
     }
