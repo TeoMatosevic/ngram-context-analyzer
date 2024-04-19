@@ -1,10 +1,12 @@
 use crate::{
     error_handler::HttpError,
-    parse_varying_indexes,
-    three_grams::model::{ThreeGramInput, VaryingQueryResult},
+    three_grams::model::VaryingQueryResult,
 };
 use actix_web::{get, web, HttpResponse};
 use std::collections::HashMap;
+use std::sync::Arc;
+
+use super::model::HttpQueryInput;
 
 /// Represents the application data.
 ///
@@ -14,7 +16,7 @@ use std::collections::HashMap;
 ///
 /// This struct is used to store the application data.
 pub struct AppData {
-    pub scy_session: scylla::Session,
+    pub scy_session: Arc<scylla::Session>,
 }
 
 /// Handles the GET request to get a three-gram.
@@ -37,23 +39,20 @@ async fn get_three_gram(
     query: web::Query<HashMap<String, String>>,
     data: web::Data<AppData>,
 ) -> Result<HttpResponse, HttpError> {
-    let session = &data.scy_session;
+    let session = Arc::clone(&data.scy_session);
 
-    let input = match ThreeGramInput::from(&query) {
+    let query = query.into_inner().clone();
+
+    let input = match HttpQueryInput::from(&query) {
         Ok(input) => input,
-        Err(_) => return Ok(HttpResponse::BadRequest().json("Invalid input")),
+        Err(err) => return Ok(HttpResponse::BadRequest().json(err)),
     };
 
-    let vary = query.get("vary");
+    match input.varying_indexes {
+        Some(indexes) => {
+            let s = Arc::clone(&session);
 
-    match vary {
-        Some(vary) => {
-            let indexes = match parse_varying_indexes(vary) {
-                Ok(indexes) => indexes,
-                Err(err) => return Ok(HttpResponse::BadRequest().json(err)),
-            };
-
-            let result = VaryingQueryResult::get_varying(&session, &input, indexes).await;
+            let result = VaryingQueryResult::get_varying(s, input.three_gram, indexes).await;
 
             let result = match result {
                 Ok(result) => result,
@@ -66,7 +65,8 @@ async fn get_three_gram(
             return Ok(HttpResponse::Ok().json(result));
         }
         None => {
-            let three_gram = VaryingQueryResult::get_one(session, input).await;
+            let s = Arc::clone(&session);
+            let three_gram = VaryingQueryResult::get_one(s, input.three_gram).await;
 
             let three_gram = match three_gram {
                 Ok(three_gram) => three_gram,

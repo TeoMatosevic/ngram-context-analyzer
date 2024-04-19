@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use scylla::{
     frame::response::result::Row, prepared_statement::PreparedStatement, statement::Consistency,
     Session, SessionBuilder,
@@ -35,13 +37,15 @@ pub enum QueryError {
 /// # Errors
 ///
 /// If the connection to ScyllaDB can not be established, a `&'static str` with the error message will be returned.
-pub async fn init() -> Result<Session, &'static str> {
+pub async fn init() -> Result<Arc<Session>, &'static str> {
     let uri = std::env::var("SCYLLA_URI").unwrap_or_else(|_| "127.0.0.1:9042".to_string());
 
     let session = match SessionBuilder::new().known_node(uri).build().await {
         Ok(session) => session,
         Err(_) => return Err("Failed to connect to ScyllaDB"),
     };
+
+    let session = Arc::new(session);
 
     Ok(session)
 }
@@ -52,7 +56,7 @@ pub async fn init() -> Result<Session, &'static str> {
 ///
 /// * `preapred_query` - The prepared query.
 pub struct QueryFactory {
-    preapred_query: PreparedStatement,
+    prepared_query: PreparedStatement,
 }
 
 impl QueryFactory {
@@ -72,7 +76,7 @@ impl QueryFactory {
     ///
     /// If the query can not be prepared, a `&'static str` with the error message will be returned.
     pub async fn build(
-        session: &Session,
+        session: Arc<Session>,
         query: &str,
         consistency: Consistency,
     ) -> Result<Self, &'static str> {
@@ -84,7 +88,7 @@ impl QueryFactory {
         prepared_query.set_consistency(consistency);
 
         Ok(QueryFactory {
-            preapred_query: prepared_query,
+            prepared_query,
         })
     }
 
@@ -105,10 +109,10 @@ impl QueryFactory {
     /// If the query does not return any results, a `QueryError` will be returned.
     pub async fn execute_one(
         &self,
-        session: &Session,
+        session: Arc<Session>,
         params: Vec<&str>,
     ) -> Result<Vec<Row>, QueryError> {
-        let rows = match session.execute(&self.preapred_query, params).await {
+        let rows = match session.execute(&self.prepared_query, params).await {
             Ok(res) => res.rows,
             Err(_) => return Err(QueryError::ScyllaError),
         };

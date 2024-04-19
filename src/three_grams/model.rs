@@ -1,11 +1,19 @@
-use crate::db::{
-    QueryError, QueryFactory, GET_BY_ALL, GET_BY_FIRST_AND_SECOND, GET_BY_FIRST_AND_THIRD,
-    GET_BY_SECOND_AND_THIRD,
+use crate::{
+    db::{
+        QueryError, QueryFactory, GET_BY_ALL, GET_BY_FIRST_AND_SECOND, GET_BY_FIRST_AND_THIRD,
+        GET_BY_SECOND_AND_THIRD,
+    },
+    parse_varying_indexes,
 };
-use actix_web::web;
 use scylla::{statement::Consistency, IntoTypedRows, Session};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    sync::{mpsc, Arc},
+    thread,
+};
+
+use tokio;
 
 /// Represents a three-gram.
 ///
@@ -30,11 +38,16 @@ pub struct ThreeGram {
 /// * `word1` - The first word of the three-gram.
 /// * `word2` - The second word of the three-gram.
 /// * `word3` - The third word of the three-gram.
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct ThreeGramInput {
     pub word1: String,
     pub word2: String,
     pub word3: String,
+}
+
+pub struct HttpQueryInput {
+    pub three_gram: ThreeGramInput,
+    pub varying_indexes: Option<Vec<i32>>,
 }
 
 impl ThreeGramInput {
@@ -47,7 +60,7 @@ impl ThreeGramInput {
     /// # Returns
     ///
     /// A `Result` containing the `ThreeGramInput` if the query is valid, otherwise a `String` with the error message.
-    pub fn from(query: &web::Query<HashMap<String, String>>) -> Result<Self, String> {
+    pub fn from(query: &HashMap<String, String>) -> Result<ThreeGramInput, String> {
         let word1 = match query.get("word1") {
             Some(word1) => word1,
             None => return Err("word1 is required".to_string()),
@@ -67,6 +80,36 @@ impl ThreeGramInput {
             word1: word1.to_string(),
             word2: word2.to_string(),
             word3: word3.to_string(),
+        })
+    }
+
+    // pub fn clone(&self) -> ThreeGramInput {
+    //     ThreeGramInput {
+    //         word1: self.word1.clone(),
+    //         word2: self.word2.clone(),
+    //         word3: self.word3.clone(),
+    //     }
+    // }
+}
+
+impl HttpQueryInput {
+    pub fn from(query: &HashMap<String, String>) -> Result<HttpQueryInput, String> {
+        let three_gram = match ThreeGramInput::from(query) {
+            Ok(three_gram) => three_gram,
+            Err(err) => return Err(err),
+        };
+
+        let varying_indexes = match query.get("vary") {
+            Some(vary) => match parse_varying_indexes(vary) {
+                Ok(indexes) => Some(indexes),
+                Err(err) => return Err(err),
+            },
+            None => None,
+        };
+
+        Ok(HttpQueryInput {
+            three_gram,
+            varying_indexes,
         })
     }
 }
@@ -122,7 +165,7 @@ impl WordFreqPair {
     /// If the word is not found, a `String` with the error message will be returned.
     /// If the index is invalid, a `String` with the error message will be returned.
     pub async fn from(
-        session: &Session,
+        session: Arc<Session>,
         index: &i32,
         three_gram: &ThreeGramInput,
     ) -> Result<Vec<WordFreqPair>, String> {
@@ -134,7 +177,9 @@ impl WordFreqPair {
         };
         let consistency = Consistency::One;
 
-        let query = match QueryFactory::build(session, query, consistency).await {
+        let s = Arc::clone(&session);
+
+        let query = match QueryFactory::build(s, query, consistency).await {
             Ok(query) => query,
             Err(err) => return Err(err.to_string()),
         };
@@ -149,7 +194,9 @@ impl WordFreqPair {
         .map(|s| s.as_str())
         .collect::<Vec<&str>>();
 
-        let rows = match query.execute_one(session, input).await {
+        let s = Arc::clone(&session);
+
+        let rows = match query.execute_one(s, input).await {
             Ok(rows) => rows,
             Err(err) => match err {
                 QueryError::ScyllaError => return Err("Can not execute query".to_string()),
@@ -249,19 +296,23 @@ impl VaryingQueryResult {
     /// # Returns
     ///
     /// A `Result` containing the `VaryingQueryResult` if the query is successful, otherwise a `String` with the error message.
-    pub async fn get_one(session: &Session, input: ThreeGramInput) -> Result<Self, String> {
+    pub async fn get_one(session: Arc<Session>, input: ThreeGramInput) -> Result<Self, String> {
         let query = GET_BY_ALL;
         let consistency = Consistency::One;
 
         let start_time = std::time::Instant::now();
 
-        let query = match QueryFactory::build(session, query, consistency).await {
+        let s = Arc::clone(&session);
+
+        let query = match QueryFactory::build(s, query, consistency).await {
             Ok(query) => query,
             Err(err) => return Err(err.to_string()),
         };
 
+        let s = Arc::clone(&session);
+
         let rows = match query
-            .execute_one(session, vec![&input.word1, &input.word2, &input.word3])
+            .execute_one(s, vec![&input.word1, &input.word2, &input.word3])
             .await
         {
             Ok(rows) => rows,
@@ -297,6 +348,7 @@ impl VaryingQueryResult {
                 freq,
             });
         }
+
         let end_time = format!("{} ms", start_time.elapsed().as_millis());
         return Ok(VaryingQueryResult {
             time_taken: end_time,
@@ -320,29 +372,64 @@ impl VaryingQueryResult {
     ///
     /// A `Result` containing the `VaryingQueryResult` if the query is successful, otherwise a `String` with the error message.
     pub async fn get_varying(
-        session: &Session,
-        input: &ThreeGramInput,
+        session: Arc<Session>,
+        input: ThreeGramInput,
         varying_indexed: Vec<i32>,
     ) -> Result<VaryingQueryResult, String> {
         let mut vary: Vec<VaryingThreeGram> = vec![];
         let vary_indexes_copy = varying_indexed.clone();
 
         let start_time = std::time::Instant::now();
+        let (tx, rx) = mpsc::channel();
+
+        let mut handles = vec![];
 
         for index in &varying_indexed {
-            let solutions = WordFreqPair::from(session, &index, &input).await;
-            let solutions = match solutions {
-                Ok(solutions) => solutions,
+            let s = Arc::clone(&session);
+            let index = *index;
+            let i = input.clone();
+            let tx1 = tx.clone();
+
+            let handle = thread::spawn(move || {
+                println!("Spawning {}", index);
+                let rt = tokio::runtime::Builder::new_multi_thread()
+                    .enable_all()
+                    .build()
+                    .unwrap();
+                rt.block_on(process(s, &i, index, tx1)).unwrap();
+            });
+            handles.push(handle);
+            // let solutions = WordFreqPair::from(session, &index, &input).await;
+            // let solutions = match solutions {
+            //     Ok(solutions) => solutions,
+            //     Err(err) => return Err(err),
+            // };
+            // let word = match index {
+            //     1 => input.word1.clone(),
+            //     2 => input.word2.clone(),
+            //     3 => input.word3.clone(),
+            //     _ => return Err("Invalid index".to_string()),
+            // };
+            // let varying = VaryingThreeGram::new(&index, word, solutions);
+            // vary.push(varying);
+        }
+
+        for handle in handles {
+            println!("Joining");
+            handle.join().unwrap();
+        }
+
+        drop(tx);
+
+        for received in rx {
+            println!("Received");
+            match received {
+                Ok(varying) => {
+                    println!("Varying {}", varying.word);
+                    vary.push(varying);
+                },
                 Err(err) => return Err(err),
-            };
-            let word = match index {
-                1 => input.word1.clone(),
-                2 => input.word2.clone(),
-                3 => input.word3.clone(),
-                _ => return Err("Invalid index".to_string()),
-            };
-            let varying = VaryingThreeGram::new(&index, word, solutions);
-            vary.push(varying);
+            }
         }
 
         let mut provided_n_gram_frequency = 0;
@@ -389,4 +476,37 @@ impl VaryingQueryResult {
             vary,
         })
     }
+}
+
+async fn process(
+    session: Arc<Session>,
+    input: &ThreeGramInput,
+    index: i32,
+    tx: mpsc::Sender<Result<VaryingThreeGram, String>>,
+) -> Result<(), std::io::Error> {
+    println!("Processing index: {}", index);
+    let s = Arc::clone(&session);
+    let solutions = WordFreqPair::from(s, &index, input).await;
+    let solutions = match solutions {
+        Ok(solutions) => solutions,
+        Err(err) => {
+            tx.send(Err(err)).unwrap();
+            return Ok(());
+        }
+    };
+
+    let word = match index {
+        1 => &input.word1,
+        2 => &input.word2,
+        3 => &input.word3,
+        _ => {
+            tx.send(Err("Invalid index".to_string())).unwrap();
+            return Ok(());
+        }
+    };
+
+    let varying = VaryingThreeGram::new(&index, word.to_string(), solutions);
+    tx.send(Ok(varying)).unwrap();
+
+    Ok(())
 }
