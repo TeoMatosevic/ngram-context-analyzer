@@ -1,9 +1,6 @@
 use actix_cors::Cors;
 use actix_web::{web::Data, App, HttpServer};
-use context_analyzer::{
-    db,
-    three_grams::routers::{self, AppData},
-};
+use context_analyzer::{db, three_grams::routers, AppData};
 use dotenv::dotenv;
 use listenfd::ListenFd;
 use std::env;

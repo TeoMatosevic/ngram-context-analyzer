@@ -1,20 +1,8 @@
-use crate::{error_handler::HttpError, three_grams::model::VaryingQueryResult};
+use super::model::{ThreeGramQueryParams, VaryingQueryResult};
+use crate::{error_handler::HttpError, parse, AppData};
 use actix_web::{get, web, HttpResponse};
 use std::collections::HashMap;
 use std::sync::Arc;
-
-use super::model::HttpQueryInput;
-
-/// Represents the application data.
-///
-/// # Fields
-///
-/// * `scy_session` - The ScyllaDB session.
-///
-/// This struct is used to store the application data.
-pub struct AppData {
-    pub scy_session: Arc<scylla::Session>,
-}
 
 /// Handles the GET request to get a three-gram.
 ///
@@ -39,7 +27,7 @@ async fn get_three_gram(
 
     let query = query.into_inner().clone();
 
-    let input = match HttpQueryInput::from(&query) {
+    let input = match parse::<ThreeGramQueryParams>(&query) {
         Ok(input) => input,
         Err(err) => return Ok(HttpResponse::BadRequest().json(err)),
     };

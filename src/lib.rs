@@ -1,3 +1,6 @@
+use std::collections::HashMap;
+use std::sync::Arc;
+
 pub mod db;
 pub mod error_handler;
 /// This is the main library of the project. It contains the modules that are used to build the project.
@@ -8,6 +11,17 @@ pub mod error_handler;
 /// * `error_handler` - Contains the error handler module.
 /// * `db` - Contains the database module.
 pub mod three_grams;
+
+/// Represents the application data.
+///
+/// # Fields
+///
+/// * `scy_session` - The ScyllaDB session.
+///
+/// This struct is used to store the application data.
+pub struct AppData {
+    pub scy_session: Arc<scylla::Session>,
+}
 
 /// Parses the varying indexes from the query.
 ///
@@ -60,4 +74,35 @@ pub fn parse_amount(amount: &str) -> Result<i32, String> {
         Ok(amount) => Ok(amount),
         Err(_) => Err("Invalid amount".to_string()),
     }
+}
+
+/// Parses the query parameters.
+pub trait ParseQueryParams: Sized {
+    /// Creates a new instance of the struct from the given query.
+    ///
+    /// # Arguments
+    ///
+    /// * `query` - The query.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing the struct if the query is valid, otherwise a `String` with the error message.
+    ///
+    /// # Errors
+    ///
+    /// If the query is invalid, a `String` with the error message will be returned.
+    fn from(query: &HashMap<String, String>) -> Result<Self, String>;
+}
+
+/// Parses the query parameters.
+///
+/// # Arguments
+///
+/// * `query` - The query.
+///
+/// # Returns
+///
+/// A `Result` containing the struct if the query is valid, otherwise a `String` with the error message.
+pub fn parse<T: ParseQueryParams>(query: &HashMap<String, String>) -> Result<T, String> {
+    T::from(query)
 }

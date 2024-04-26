@@ -1,7 +1,5 @@
-use crate::{
-    db::{QueryError, QueryFactory, GET_BY_ALL},
-    three_grams::model::{word_freq_pair::WordFreqPair, ThreeGram, ThreeGramInput},
-};
+use super::{word_freq_pair::WordFreqPair, ThreeGram, ThreeGramInput};
+use crate::db::{QueryError, QueryFactory, GET_BY_ALL};
 use scylla::{statement::Consistency, IntoTypedRows, Session};
 use serde::{Deserialize, Serialize};
 use std::{

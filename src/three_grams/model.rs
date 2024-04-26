@@ -7,7 +7,7 @@
 mod vary_three_gram;
 mod word_freq_pair;
 
-use crate::{parse_amount, parse_varying_indexes};
+use crate::{parse_amount, parse_varying_indexes, ParseQueryParams};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -77,34 +77,25 @@ impl ThreeGramInput {
     }
 }
 
-/// Represents the HTTP query input.
+/// Represents the query parameters for the three-gram.
 ///
 /// # Fields
 ///
 /// * `three_gram` - The three-gram.
-/// * `varying_indexes` - The varying indexes.
+/// * `varying_indexes` - The indexes that are varying.
 /// * `amount` - The amount of words to return.
 ///
-/// # Methods
+/// # Implements
 ///
-/// * `from` - Creates a `HttpQueryInput` from the given query.
-pub struct HttpQueryInput {
+/// * `ParseQueryParams` - Parses the query parameters.
+pub struct ThreeGramQueryParams {
     pub three_gram: ThreeGramInput,
     pub varying_indexes: Option<Vec<i32>>,
     pub amount: i32,
 }
 
-impl HttpQueryInput {
-    /// Creates a `HttpQueryInput` from the given query.
-    ///
-    /// # Arguments
-    ///
-    /// * `query` - The query that contains the three-gram.
-    ///
-    /// # Returns
-    ///
-    /// A `Result` containing the `HttpQueryInput` if the query is valid, otherwise a `String` with the error message.
-    pub fn from(query: &HashMap<String, String>) -> Result<HttpQueryInput, String> {
+impl ParseQueryParams for ThreeGramQueryParams {
+    fn from(query: &HashMap<String, String>) -> Result<Self, String> {
         let three_gram = match ThreeGramInput::from(query) {
             Ok(three_gram) => three_gram,
             Err(err) => return Err(err),
@@ -126,7 +117,7 @@ impl HttpQueryInput {
             None => 50,
         };
 
-        Ok(HttpQueryInput {
+        Ok(ThreeGramQueryParams {
             three_gram,
             varying_indexes,
             amount,

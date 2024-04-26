@@ -1,9 +1,7 @@
-use crate::{
-    db::{
-        QueryError, QueryFactory, GET_BY_FIRST_AND_SECOND, GET_BY_FIRST_AND_THIRD,
-        GET_BY_SECOND_AND_THIRD,
-    },
-    three_grams::model::ThreeGramInput,
+use super::ThreeGramInput;
+use crate::db::{
+    QueryError, QueryFactory, GET_BY_FIRST_AND_SECOND, GET_BY_FIRST_AND_THIRD,
+    GET_BY_SECOND_AND_THIRD,
 };
 use scylla::{statement::Consistency, IntoTypedRows, Session};
 use serde::{Deserialize, Serialize};
