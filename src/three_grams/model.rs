@@ -13,6 +13,9 @@ use std::collections::HashMap;
 
 pub use vary_three_gram::VaryingQueryResult;
 
+/// The default amount of word frequency pairs to return.
+static DEFAULT_AMOUNT_OF_WORD_FREQ_PAIRS: i32 = 50;
+
 /// Represents a three-gram.
 ///
 /// # Fields
@@ -114,7 +117,7 @@ impl ParseQueryParams for ThreeGramQueryParams {
                 Ok(amount) => amount,
                 Err(err) => return Err(err),
             },
-            None => 50,
+            None => DEFAULT_AMOUNT_OF_WORD_FREQ_PAIRS,
         };
 
         Ok(ThreeGramQueryParams {
