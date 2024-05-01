@@ -19,7 +19,7 @@ use std::sync::Arc;
 ///
 /// If the three-gram is not found, a `HttpError` is returned.
 #[get("/three-gram")]
-async fn get_three_gram(
+pub async fn get_three_gram(
     query: web::Query<HashMap<String, String>>,
     data: web::Data<AppData>,
 ) -> Result<HttpResponse, HttpError> {
@@ -64,13 +64,4 @@ async fn get_three_gram(
             Ok(HttpResponse::Ok().json(three_gram))
         }
     }
-}
-
-/// Initializes the routes for the three-gram module.
-///
-/// # Arguments
-///
-/// * `cfg` - The application configuration.
-pub fn init_routes(cfg: &mut web::ServiceConfig) {
-    cfg.service(get_three_gram);
 }

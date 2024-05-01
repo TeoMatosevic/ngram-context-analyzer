@@ -62,7 +62,6 @@ impl WordFreqPair {
         session: Arc<Session>,
         index: &i32,
         three_gram: &ThreeGramInput,
-        amount: i32,
     ) -> Result<Vec<WordFreqPair>, String> {
         let query = match index {
             1 => GET_BY_SECOND_AND_THIRD,
@@ -108,10 +107,6 @@ impl WordFreqPair {
             .collect();
 
         result.sort_by(|a, b| b.frequency.cmp(&a.frequency));
-
-        if amount >= 0 {
-            result.truncate(amount as usize);
-        }
 
         Ok(result)
     }

@@ -52,23 +52,17 @@ impl VaryingThreeGram {
     /// # Arguments
     ///
     /// * `vary` - The vector of `VaryingThreeGram`.
-    /// * `index` - The index of the word.
     /// * `word` - The word.
     ///
     /// # Returns
     ///
     /// A `Result` containing the frequency of the word if the word is found, otherwise a `String` with the error message.
-    fn find_freq(vary: &Vec<VaryingThreeGram>, index: i32, word: &String) -> Result<i32, String> {
-        for i in vary {
-            if i.index == index {
-                let pair = WordFreqPair::find(&i.solutions, word);
-                match pair {
-                    Some(pair) => return Ok(pair.frequency),
-                    None => return Err("No pair found".to_string()),
-                }
-            }
+    fn find_freq(vary: &VaryingThreeGram, word: &String) -> Result<i32, String> {
+        let pair = WordFreqPair::find(&vary.solutions, word);
+        match pair {
+            Some(pair) => return Ok(pair.frequency),
+            None => return Err("No pair found".to_string()),
         }
-        Err("No pair found".to_string())
     }
 }
 
@@ -183,7 +177,7 @@ impl VaryingQueryResult {
     /// * `session` - The ScyllaDB session.
     /// * `input` - The three-gram input.
     /// * `varying_indexed` - The varying indexes.
-    /// * `amount` - The amount of solutions to return.
+    /// * `amount` - The amount of word freq pairs to return.
     ///
     /// # Returns
     ///
@@ -213,8 +207,7 @@ impl VaryingQueryResult {
                     .enable_all()
                     .build()
                     .unwrap();
-                rt.block_on(process(s, &i, index, tx_clone, amount))
-                    .unwrap();
+                rt.block_on(process(s, &i, index, tx_clone)).unwrap();
             });
             handles.push(handle);
         }
@@ -225,28 +218,25 @@ impl VaryingQueryResult {
 
         drop(tx);
 
+        let mut i = 0;
+        let mut provided_n_gram_frequency = 0;
+
         for received in rx {
             match received {
-                Ok(varying) => {
+                Ok(mut varying) => {
+                    if i == 0 {
+                        let word = varying.word.clone();
+                        if let Ok(freq) = VaryingThreeGram::find_freq(&varying, &word) {
+                            provided_n_gram_frequency = freq;
+                        }
+                        i += 1;
+                    }
+                    if amount >= 0 {
+                        varying.solutions.truncate(amount as usize);
+                    }
                     vary.push(varying);
                 }
                 Err(err) => return Err(err),
-            }
-        }
-
-        let mut provided_n_gram_frequency = 0;
-
-        if varying_indexed.contains(&1) {
-            if let Ok(freq) = VaryingThreeGram::find_freq(&vary, 1, &input.word1) {
-                provided_n_gram_frequency = freq;
-            }
-        } else if varying_indexed.contains(&2) {
-            if let Ok(freq) = VaryingThreeGram::find_freq(&vary, 2, &input.word2) {
-                provided_n_gram_frequency = freq;
-            }
-        } else if varying_indexed.contains(&3) {
-            if let Ok(freq) = VaryingThreeGram::find_freq(&vary, 3, &input.word3) {
-                provided_n_gram_frequency = freq;
             }
         }
 
@@ -270,7 +260,6 @@ impl VaryingQueryResult {
 /// * `input` - The three-gram input.
 /// * `index` - The index of the word.
 /// * `tx` - The sender.
-/// * `amount` - The amount of solutions to return.
 ///
 /// # Returns
 ///
@@ -284,10 +273,9 @@ async fn process(
     input: &ThreeGramInput,
     index: i32,
     tx: mpsc::Sender<Result<VaryingThreeGram, String>>,
-    amount: i32,
 ) -> Result<(), std::io::Error> {
     let s = Arc::clone(&session);
-    let solutions = WordFreqPair::from(s, &index, input, amount).await;
+    let solutions = WordFreqPair::from(s, &index, input).await;
     let solutions = match solutions {
         Ok(solutions) => solutions,
         Err(err) => {
