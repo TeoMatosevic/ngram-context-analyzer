@@ -1,6 +1,6 @@
 use super::word_freq_pair::WordFreqPair;
 use crate::{
-    db::{QueryError, QueryFactory, GET_BY_ALL},
+    db::{QueryError, QueryFactory, GET_3},
     n_grams::{Printable, Queryable},
 };
 use scylla::{statement::Consistency, IntoTypedRows, Session};
@@ -12,15 +12,15 @@ use std::{
 use tokio;
 
 /// Represents a varying n-gram.
-/// 
+///
 /// # Fields
-/// 
+///
 /// * `index` - The index of the word.
 /// * `word` - The word.
 /// * `solutions` - The solutions of the word.
-/// 
+///
 /// # Methods
-/// 
+///
 /// * `new` - Creates a new `VaryingNGram`.
 /// * `find_freq` - Finds the frequency of the word in the given vector of `VaryingNGram`.
 #[derive(Serialize, Deserialize)]
@@ -113,7 +113,7 @@ impl VaryingQueryResult {
     where
         T: Queryable + Printable + Clone + Send + Sync + 'static,
     {
-        let query = GET_BY_ALL;
+        let query = GET_3;
         let consistency = Consistency::One;
 
         let start_time = std::time::Instant::now();

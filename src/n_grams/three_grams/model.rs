@@ -1,5 +1,5 @@
 use crate::{
-    db::{GET_BY_FIRST_AND_SECOND, GET_BY_FIRST_AND_THIRD, GET_BY_SECOND_AND_THIRD},
+    db::{GET_BY_FIRST_AND_SECOND_3, GET_BY_FIRST_AND_THIRD_3, GET_BY_SECOND_AND_THIRD_3},
     n_grams::{Printable, Queryable},
     parse_amount, parse_varying_indexes, ParseQueryParams,
 };
@@ -32,9 +32,9 @@ pub struct ThreeGram {
 /// * `word1` - The first word of the three-gram.
 /// * `word2` - The second word of the three-gram.
 /// * `word3` - The third word of the three-gram.
-/// 
+///
 /// # Implements
-/// 
+///
 /// * `Queryable` - Provides methods to query the database.
 /// * `Printable` - Provides method for printing.
 #[derive(Serialize, Deserialize, Clone)]
@@ -94,9 +94,9 @@ impl Queryable for ThreeGramInput {
 
     fn get_query(&self, index: i32) -> Result<&str, String> {
         match index {
-            1 => Ok(GET_BY_SECOND_AND_THIRD),
-            2 => Ok(GET_BY_FIRST_AND_THIRD),
-            3 => Ok(GET_BY_FIRST_AND_SECOND),
+            1 => Ok(GET_BY_SECOND_AND_THIRD_3),
+            2 => Ok(GET_BY_FIRST_AND_THIRD_3),
+            3 => Ok(GET_BY_FIRST_AND_SECOND_3),
             _ => Err("Invalid index".to_string()),
         }
     }
