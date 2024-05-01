@@ -1,4 +1,4 @@
-use super::model::{ThreeGramQueryParams, VaryingQueryResult};
+use super::{super::vary_n_gram::VaryingQueryResult, model::ThreeGramQueryParams};
 use crate::{error_handler::HttpError, parse, AppData};
 use actix_web::{get, web, HttpResponse};
 use std::collections::HashMap;

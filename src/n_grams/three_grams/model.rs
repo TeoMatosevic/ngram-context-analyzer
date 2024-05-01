@@ -1,17 +1,10 @@
-/// The model module contains the structs and methods for three-grams.
-///
-/// # Modules
-///
-/// * `vary_three_gram` - Contains the varying three-gram.
-/// * `word_freq_pair` - Contains the word frequency pair.
-mod vary_three_gram;
-mod word_freq_pair;
-
-use crate::{parse_amount, parse_varying_indexes, ParseQueryParams};
+use crate::{
+    db::{GET_BY_FIRST_AND_SECOND, GET_BY_FIRST_AND_THIRD, GET_BY_SECOND_AND_THIRD},
+    n_grams::{Printable, Queryable},
+    parse_amount, parse_varying_indexes, ParseQueryParams,
+};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-
-pub use vary_three_gram::VaryingQueryResult;
 
 /// The default amount of word frequency pairs to return.
 static DEFAULT_AMOUNT_OF_WORD_FREQ_PAIRS: i32 = 50;
@@ -39,6 +32,11 @@ pub struct ThreeGram {
 /// * `word1` - The first word of the three-gram.
 /// * `word2` - The second word of the three-gram.
 /// * `word3` - The third word of the three-gram.
+/// 
+/// # Implements
+/// 
+/// * `Queryable` - Provides methods to query the database.
+/// * `Printable` - Provides method for printing.
 #[derive(Serialize, Deserialize, Clone)]
 pub struct ThreeGramInput {
     pub word1: String,
@@ -77,6 +75,45 @@ impl ThreeGramInput {
             word2: word2.to_string(),
             word3: word3.to_string(),
         })
+    }
+}
+
+impl Queryable for ThreeGramInput {
+    fn to_vec(&self) -> Vec<&str> {
+        vec![&self.word1, &self.word2, &self.word3]
+    }
+
+    fn get_input(&self, index: i32) -> Result<Vec<&String>, String> {
+        match index {
+            1 => Ok(vec![&self.word2, &self.word3]),
+            2 => Ok(vec![&self.word1, &self.word3]),
+            3 => Ok(vec![&self.word1, &self.word2]),
+            _ => Err("Invalid index".to_string()),
+        }
+    }
+
+    fn get_query(&self, index: i32) -> Result<&str, String> {
+        match index {
+            1 => Ok(GET_BY_SECOND_AND_THIRD),
+            2 => Ok(GET_BY_FIRST_AND_THIRD),
+            3 => Ok(GET_BY_FIRST_AND_SECOND),
+            _ => Err("Invalid index".to_string()),
+        }
+    }
+
+    fn get_word(&self, index: i32) -> Result<&String, String> {
+        match index {
+            1 => Ok(&self.word1),
+            2 => Ok(&self.word2),
+            3 => Ok(&self.word3),
+            _ => Err("Invalid index".to_string()),
+        }
+    }
+}
+
+impl Printable for ThreeGramInput {
+    fn print(&self) -> String {
+        format!("{} {} {}", self.word1, self.word2, self.word3)
     }
 }
 

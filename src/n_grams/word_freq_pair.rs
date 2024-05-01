@@ -1,8 +1,5 @@
-use super::ThreeGramInput;
-use crate::db::{
-    QueryError, QueryFactory, GET_BY_FIRST_AND_SECOND, GET_BY_FIRST_AND_THIRD,
-    GET_BY_SECOND_AND_THIRD,
-};
+use super::Queryable;
+use crate::db::{QueryError, QueryFactory};
 use scylla::{statement::Consistency, IntoTypedRows, Session};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -17,7 +14,7 @@ use std::sync::Arc;
 /// # Methods
 ///
 /// * `new` - Creates a new `WordFreqPair`.
-/// * `from` - Creates a `WordFreqPair` from the given session, index, and three-gram.
+/// * `from` - Creates a `WordFreqPair` from the given session, index, and n-gram.
 /// * `find` - Finds the word in the given vector of `WordFreqPair`.
 #[derive(Serialize, Deserialize)]
 pub struct WordFreqPair {
@@ -40,13 +37,13 @@ impl WordFreqPair {
         WordFreqPair { word, frequency }
     }
 
-    /// Creates a `WordFreqPair` from the given session, index, and three-gram.
+    /// Creates a `WordFreqPair` from the given session, index, and n-gram.
     ///
     /// # Arguments
     ///
     /// * `session` - The ScyllaDB session.
     /// * `index` - The index of the word.
-    /// * `three_gram` - The three-gram.
+    /// * `input` - Generic input that implements `Queryable`.
     /// * `amount` - The amount of words to return.
     ///
     /// # Returns
@@ -58,16 +55,17 @@ impl WordFreqPair {
     /// If the query can not be executed, a `String` with the error message will be returned.
     /// If the word is not found, a `String` with the error message will be returned.
     /// If the index is invalid, a `String` with the error message will be returned.
-    pub async fn from(
+    pub async fn from<T>(
         session: Arc<Session>,
         index: &i32,
-        three_gram: &ThreeGramInput,
-    ) -> Result<Vec<WordFreqPair>, String> {
-        let query = match index {
-            1 => GET_BY_SECOND_AND_THIRD,
-            2 => GET_BY_FIRST_AND_THIRD,
-            3 => GET_BY_FIRST_AND_SECOND,
-            _ => return Err("Invalid index".to_string()),
+        input: &T,
+    ) -> Result<Vec<WordFreqPair>, String>
+    where
+        T: Queryable,
+    {
+        let query = match input.get_query(*index) {
+            Ok(query) => query,
+            Err(err) => return Err(err),
         };
         let consistency = Consistency::One;
 
@@ -78,15 +76,10 @@ impl WordFreqPair {
             Err(err) => return Err(err.to_string()),
         };
 
-        let input = match index {
-            1 => vec![&three_gram.word2, &three_gram.word3],
-            2 => vec![&three_gram.word1, &three_gram.word3],
-            3 => vec![&three_gram.word1, &three_gram.word2],
-            _ => return Err("Invalid index".to_string()),
-        }
-        .iter()
-        .map(|s| s.as_str())
-        .collect::<Vec<&str>>();
+        let input = match input.get_input(*index) {
+            Ok(input) => input.iter().map(|s| s.as_str()).collect::<Vec<&str>>(),
+            Err(err) => return Err(err),
+        };
 
         let s = Arc::clone(&session);
 

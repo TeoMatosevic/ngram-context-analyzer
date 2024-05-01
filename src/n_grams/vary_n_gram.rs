@@ -1,5 +1,8 @@
-use super::{word_freq_pair::WordFreqPair, ThreeGram, ThreeGramInput};
-use crate::db::{QueryError, QueryFactory, GET_BY_ALL};
+use super::word_freq_pair::WordFreqPair;
+use crate::{
+    db::{QueryError, QueryFactory, GET_BY_ALL},
+    n_grams::{Printable, Queryable},
+};
 use scylla::{statement::Consistency, IntoTypedRows, Session};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -8,27 +11,27 @@ use std::{
 };
 use tokio;
 
-/// Represents a varying three-gram.
-///
+/// Represents a varying n-gram.
+/// 
 /// # Fields
-///
+/// 
 /// * `index` - The index of the word.
 /// * `word` - The word.
 /// * `solutions` - The solutions of the word.
-///
+/// 
 /// # Methods
-///
-/// * `new` - Creates a new `VaryingThreeGram`.
-/// * `find_freq` - Finds the frequency of the word in the given vector of `VaryingThreeGram`.
+/// 
+/// * `new` - Creates a new `VaryingNGram`.
+/// * `find_freq` - Finds the frequency of the word in the given vector of `VaryingNGram`.
 #[derive(Serialize, Deserialize)]
-pub struct VaryingThreeGram {
+pub struct VaryingNGram {
     pub index: i32,
     pub word: String,
     pub solutions: Vec<WordFreqPair>,
 }
 
-impl VaryingThreeGram {
-    /// Creates a new `VaryingThreeGram`.
+impl VaryingNGram {
+    /// Creates a new `VaryingNGram`.
     ///
     /// # Arguments
     ///
@@ -38,26 +41,26 @@ impl VaryingThreeGram {
     ///
     /// # Returns
     ///
-    /// A `VaryingThreeGram`.
-    pub fn new(index: &i32, word: String, solutions: Vec<WordFreqPair>) -> VaryingThreeGram {
-        VaryingThreeGram {
+    /// A `VaryingNGram`.
+    pub fn new(index: &i32, word: String, solutions: Vec<WordFreqPair>) -> VaryingNGram {
+        VaryingNGram {
             index: *index,
             word,
             solutions,
         }
     }
 
-    /// Finds the frequency of the word in the given vector of `VaryingThreeGram`.
+    /// Finds the frequency of the word in the given vector of `VaryingNGram`.
     ///
     /// # Arguments
     ///
-    /// * `vary` - The vector of `VaryingThreeGram`.
+    /// * `vary` - The vector of `VaryingNGram`.
     /// * `word` - The word.
     ///
     /// # Returns
     ///
     /// A `Result` containing the frequency of the word if the word is found, otherwise a `String` with the error message.
-    fn find_freq(vary: &VaryingThreeGram, word: &String) -> Result<i32, String> {
+    fn find_freq(vary: &VaryingNGram, word: &String) -> Result<i32, String> {
         let pair = WordFreqPair::find(&vary.solutions, word);
         match pair {
             Some(pair) => return Ok(pair.frequency),
@@ -75,7 +78,7 @@ impl VaryingThreeGram {
 /// * `provided_n_gram` - The provided n-gram.
 /// * `provided_n_gram_frequency` - The frequency of the provided n-gram.
 /// * `varying_indexes` - The varying indexes.
-/// * `vary` - The varying three-grams.
+/// * `vary` - The varying n-grams.
 ///
 /// # Methods
 ///
@@ -88,7 +91,7 @@ pub struct VaryingQueryResult {
     pub provided_n_gram: String,
     pub provided_n_gram_frequency: i32,
     pub varying_indexes: Vec<i32>,
-    pub vary: Vec<VaryingThreeGram>,
+    pub vary: Vec<VaryingNGram>,
 }
 
 impl VaryingQueryResult {
@@ -97,7 +100,7 @@ impl VaryingQueryResult {
     /// # Arguments
     ///
     /// * `session` - The ScyllaDB session.
-    /// * `input` - The three-gram input.
+    /// * `input` - Generic input that implements `Queryable`.
     ///
     /// # Returns
     ///
@@ -106,7 +109,10 @@ impl VaryingQueryResult {
     /// # Errors
     ///
     /// If the query can not be executed, a `String` with the error message will be returned.
-    pub async fn get_one(session: Arc<Session>, input: ThreeGramInput) -> Result<Self, String> {
+    pub async fn get_one<T>(session: Arc<Session>, input: T) -> Result<Self, String>
+    where
+        T: Queryable + Printable + Clone + Send + Sync + 'static,
+    {
         let query = GET_BY_ALL;
         let consistency = Consistency::One;
 
@@ -121,10 +127,7 @@ impl VaryingQueryResult {
 
         let s = Arc::clone(&session);
 
-        let rows = match query
-            .execute_one(s, vec![&input.word1, &input.word2, &input.word3])
-            .await
-        {
+        let rows = match query.execute_one(s, input.to_vec()).await {
             Ok(rows) => rows,
             Err(err) => match err {
                 QueryError::ScyllaError => return Err("Can not execute query".to_string()),
@@ -132,8 +135,8 @@ impl VaryingQueryResult {
                     let end_time = format!("{} ms", start_time.elapsed().as_millis());
                     return Ok(VaryingQueryResult {
                         time_taken: end_time,
-                        n_gram_length: 3,
-                        provided_n_gram: format!("{} {} {}", input.word1, input.word2, input.word3),
+                        n_gram_length: input.print().split_whitespace().count() as i32,
+                        provided_n_gram: input.print(),
                         provided_n_gram_frequency: 0,
                         varying_indexes: vec![],
                         vary: vec![],
@@ -142,28 +145,21 @@ impl VaryingQueryResult {
             },
         };
 
-        let mut result = Vec::new();
         let mut provided_n_gram_frequency = 0;
 
         for row in rows.into_typed::<(String, String, String, i32)>() {
-            let (word1, word2, word3, freq) = match row {
+            let (_word1, _word2, _word3, freq) = match row {
                 Ok(row) => row,
                 Err(err) => return Err(err.to_string()),
             };
             provided_n_gram_frequency = freq;
-            result.push(ThreeGram {
-                word1,
-                word2,
-                word3,
-                freq,
-            });
         }
 
         let end_time = format!("{} ms", start_time.elapsed().as_millis());
         return Ok(VaryingQueryResult {
             time_taken: end_time,
-            n_gram_length: 3,
-            provided_n_gram: format!("{} {} {}", input.word1, input.word2, input.word3),
+            n_gram_length: input.print().split_whitespace().count() as i32,
+            provided_n_gram: input.print(),
             provided_n_gram_frequency,
             varying_indexes: vec![],
             vary: vec![],
@@ -175,20 +171,23 @@ impl VaryingQueryResult {
     /// # Arguments
     ///
     /// * `session` - The ScyllaDB session.
-    /// * `input` - The three-gram input.
+    /// * `input` - Generic input that implements `Queryable`.
     /// * `varying_indexed` - The varying indexes.
     /// * `amount` - The amount of word freq pairs to return.
     ///
     /// # Returns
     ///
     /// A `Result` containing the `VaryingQueryResult` if the query is successful, otherwise a `String` with the error message.
-    pub async fn get_varying(
+    pub async fn get_varying<T>(
         session: Arc<Session>,
-        input: ThreeGramInput,
+        input: T,
         varying_indexed: Vec<i32>,
         amount: i32,
-    ) -> Result<VaryingQueryResult, String> {
-        let mut vary: Vec<VaryingThreeGram> = vec![];
+    ) -> Result<VaryingQueryResult, String>
+    where
+        T: Queryable + Printable + Clone + Send + Sync + 'static,
+    {
+        let mut vary: Vec<VaryingNGram> = vec![];
         let vary_indexes_copy = varying_indexed.clone();
 
         let start_time = std::time::Instant::now();
@@ -226,7 +225,7 @@ impl VaryingQueryResult {
                 Ok(mut varying) => {
                     if i == 0 {
                         let word = varying.word.clone();
-                        if let Ok(freq) = VaryingThreeGram::find_freq(&varying, &word) {
+                        if let Ok(freq) = VaryingNGram::find_freq(&varying, &word) {
                             provided_n_gram_frequency = freq;
                         }
                         i += 1;
@@ -243,8 +242,8 @@ impl VaryingQueryResult {
         let end_time = format!("{} ms", start_time.elapsed().as_millis());
         Ok(VaryingQueryResult {
             time_taken: end_time,
-            n_gram_length: 3,
-            provided_n_gram: format!("{} {} {}", input.word1, input.word2, input.word3),
+            n_gram_length: input.print().split_whitespace().count() as i32,
+            provided_n_gram: input.print(),
             provided_n_gram_frequency,
             varying_indexes: vary_indexes_copy,
             vary,
@@ -257,23 +256,26 @@ impl VaryingQueryResult {
 /// # Arguments
 ///
 /// * `session` - The ScyllaDB session.
-/// * `input` - The three-gram input.
+/// * `input` - Generic input that implements `Queryable`.
 /// * `index` - The index of the word.
 /// * `tx` - The sender.
 ///
 /// # Returns
 ///
-/// A `Result` containing the `VaryingThreeGram` if the query is successful, otherwise a `String` with the error message.
+/// A `Result` containing unit if the query is successful, otherwise a `String` with the error message.
 ///
 /// # Errors
 ///
 /// If the query can not be executed, a `String` with the error message will be returned.
-async fn process(
+async fn process<T>(
     session: Arc<Session>,
-    input: &ThreeGramInput,
+    input: &T,
     index: i32,
-    tx: mpsc::Sender<Result<VaryingThreeGram, String>>,
-) -> Result<(), std::io::Error> {
+    tx: mpsc::Sender<Result<VaryingNGram, String>>,
+) -> Result<(), std::io::Error>
+where
+    T: Queryable + Printable + Clone + Send + Sync + 'static,
+{
     let s = Arc::clone(&session);
     let solutions = WordFreqPair::from(s, &index, input).await;
     let solutions = match solutions {
@@ -284,17 +286,15 @@ async fn process(
         }
     };
 
-    let word = match index {
-        1 => &input.word1,
-        2 => &input.word2,
-        3 => &input.word3,
-        _ => {
-            tx.send(Err("Invalid index".to_string())).unwrap();
+    let word = match input.get_word(index) {
+        Ok(word) => word,
+        Err(err) => {
+            tx.send(Err(err)).unwrap();
             return Ok(());
         }
     };
 
-    let varying = VaryingThreeGram::new(&index, word.to_string(), solutions);
+    let varying = VaryingNGram::new(&index, word.to_string(), solutions);
     tx.send(Ok(varying)).unwrap();
 
     Ok(())
