@@ -1,6 +1,7 @@
 use super::Queryable;
 use crate::db::{QueryError, QueryFactory};
-use scylla::{statement::Consistency, IntoTypedRows, Session};
+use futures::stream::StreamExt;
+use scylla::{statement::Consistency, Session};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
@@ -65,7 +66,7 @@ impl WordFreqPair {
     where
         T: Queryable,
     {
-        let query = match input.get_query(*index) {
+        let query = match input.get_query(Some(*index)) {
             Ok(query) => query,
             Err(err) => return Err(err),
         };
@@ -85,21 +86,20 @@ impl WordFreqPair {
 
         let s = Arc::clone(&session);
 
-        let rows = match query.execute_one(s, input).await {
-            Ok(rows) => rows,
+        let mut row_stream = match query.execute_one(s, input).await {
+            Ok(rows) => rows.into_typed::<(String, i32)>(),
             Err(err) => match err {
                 QueryError::ScyllaError => return Err("Can not execute query".to_string()),
                 QueryError::NotFound => return Err("Word not found".to_string()),
             },
         };
 
-        let mut result: Vec<WordFreqPair> = rows
-            .into_typed::<(String, i32)>()
-            .map(|row| {
-                let (word, freq) = row.unwrap();
-                WordFreqPair::new(word, freq)
-            })
-            .collect();
+        let mut result: Vec<WordFreqPair> = vec![];
+
+        while let Some(rows) = row_stream.next().await {
+            let (word, frequency) = rows.unwrap();
+            result.push(WordFreqPair::new(word, frequency));
+        }
 
         result.sort_by(|a, b| b.frequency.cmp(&a.frequency));
 

@@ -1,6 +1,8 @@
 use super::super::word_freq_pair::DEFAULT_AMOUNT_OF_WORD_FREQ_PAIRS;
 use crate::{
-    db::{GET_BY_FIRST_AND_SECOND_3, GET_BY_FIRST_AND_THIRD_3, GET_BY_SECOND_AND_THIRD_3},
+    db::{
+        GET_BY_FIRST_AND_SECOND_3, GET_BY_FIRST_AND_THIRD_3, GET_BY_SECOND_AND_THIRD_3, GET_FREQ_3,
+    },
     n_grams::{Printable, Queryable},
     parse_amount, parse_varying_indexes, ParseQueryParams,
 };
@@ -65,12 +67,15 @@ impl Queryable for ThreeGramInput {
         vec![&self.word1, &self.word2, &self.word3]
     }
 
-    fn get_query(&self, index: i32) -> Result<&str, String> {
+    fn get_query(&self, index: Option<i32>) -> Result<&str, String> {
         match index {
-            1 => Ok(GET_BY_SECOND_AND_THIRD_3),
-            2 => Ok(GET_BY_FIRST_AND_THIRD_3),
-            3 => Ok(GET_BY_FIRST_AND_SECOND_3),
-            _ => Err("Invalid index".to_string()),
+            Some(index) => match index {
+                1 => Ok(GET_BY_SECOND_AND_THIRD_3),
+                2 => Ok(GET_BY_FIRST_AND_THIRD_3),
+                3 => Ok(GET_BY_FIRST_AND_SECOND_3),
+                _ => Err("Invalid index".to_string()),
+            },
+            None => Ok(GET_FREQ_3),
         }
     }
 

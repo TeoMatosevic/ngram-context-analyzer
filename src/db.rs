@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
 use scylla::{
-    frame::response::result::Row, prepared_statement::PreparedStatement, statement::Consistency,
-    Session, SessionBuilder,
+    prepared_statement::PreparedStatement, statement::Consistency,
+    transport::iterator::RowIterator, Session, SessionBuilder,
 };
 
-pub static GET_3: &str =
-    "SELECT * FROM n_grams.three_grams_1_2_pk WHERE word_1 = ? AND word_2 = ? AND word_3 = ?";
+pub static GET_FREQ_3: &str =
+    "SELECT freq FROM n_grams.three_grams_1_2_pk WHERE word_1 = ? AND word_2 = ? AND word_3 = ?";
 
 pub static GET_BY_SECOND_AND_THIRD_3: &str =
     "SELECT word_1, freq FROM n_grams.three_grams_2_3_pk WHERE word_2 = ? AND word_3 = ?";
@@ -17,7 +17,8 @@ pub static GET_BY_FIRST_AND_THIRD_3: &str =
 pub static GET_BY_FIRST_AND_SECOND_3: &str =
     "SELECT word_3, freq FROM n_grams.three_grams_1_2_pk WHERE word_1 = ? AND word_2 = ?";
 
-pub static GET_2: &str = "SELECT * FROM n_grams.two_grams_1_pk WHERE word_1 = ? AND word_2 = ?";
+pub static GET_FREQ_2: &str =
+    "SELECT freq FROM n_grams.two_grams_1_pk WHERE word_1 = ? AND word_2 = ?";
 
 pub static GET_BY_SECOND_2: &str =
     "SELECT word_1, freq FROM n_grams.two_grams_2_pk WHERE word_2 = ?";
@@ -107,7 +108,7 @@ impl QueryFactory {
     ///
     /// # Returns
     ///
-    /// A `Result` containing the `Vec` of `Row` if the query is successful, otherwise a `QueryError`.
+    /// A `Result` containing the `RowIterator` if the query is successful, otherwise a `QueryError`.
     ///
     /// # Errors
     ///
@@ -117,16 +118,13 @@ impl QueryFactory {
         &self,
         session: Arc<Session>,
         params: Vec<&str>,
-    ) -> Result<Vec<Row>, QueryError> {
-        let rows = match session.execute(&self.prepared_query, params).await {
-            Ok(res) => res.rows,
+    ) -> Result<RowIterator, QueryError> {
+        let query = PreparedStatement::clone(&self.prepared_query);
+        let rows_stream = match session.execute_iter(query, params).await {
+            Ok(rows_stream) => rows_stream,
             Err(_) => return Err(QueryError::ScyllaError),
         };
 
-        if let Some(rows) = rows {
-            Ok(rows)
-        } else {
-            Err(QueryError::NotFound)
-        }
+        Ok(rows_stream)
     }
 }

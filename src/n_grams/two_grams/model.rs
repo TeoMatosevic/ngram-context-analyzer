@@ -1,6 +1,6 @@
 use super::super::word_freq_pair::DEFAULT_AMOUNT_OF_WORD_FREQ_PAIRS;
 use crate::{
-    db::{GET_BY_FIRST_2, GET_BY_SECOND_2},
+    db::{GET_BY_FIRST_2, GET_BY_SECOND_2, GET_FREQ_2},
     n_grams::{Printable, Queryable},
     parse_amount, parse_varying_indexes, ParseQueryParams,
 };
@@ -57,11 +57,14 @@ impl Queryable for TwoGramInput {
         vec![&self.word1, &self.word2]
     }
 
-    fn get_query(&self, index: i32) -> Result<&str, String> {
+    fn get_query(&self, index: Option<i32>) -> Result<&str, String> {
         match index {
-            1 => Ok(GET_BY_SECOND_2),
-            2 => Ok(GET_BY_FIRST_2),
-            _ => Err("Invalid index".to_string()),
+            Some(index) => match index {
+                1 => Ok(GET_BY_SECOND_2),
+                2 => Ok(GET_BY_FIRST_2),
+                _ => Err("Invalid index".to_string()),
+            },
+            None => Ok(GET_FREQ_2),
         }
     }
 

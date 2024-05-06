@@ -32,7 +32,7 @@ pub trait Queryable {
     ///
     /// # Arguments
     ///
-    /// * `index` - The index.
+    /// * `index` - The index (i32 when the index is needed).
     ///
     /// # Returns
     ///
@@ -41,7 +41,7 @@ pub trait Queryable {
     /// # Errors
     ///
     /// If the index is invalid, a `String` with the error message will be returned.
-    fn get_query(&self, index: i32) -> Result<&str, String>;
+    fn get_query(&self, index: Option<i32>) -> Result<&str, String>;
 
     /// Gets the input for the given index.
     ///

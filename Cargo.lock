@@ -473,6 +473,7 @@ dependencies = [
  "actix-rt 1.1.1",
  "actix-web",
  "dotenv",
+ "futures",
  "listenfd",
  "scylla",
  "serde",

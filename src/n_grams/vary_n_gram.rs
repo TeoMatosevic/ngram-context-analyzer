@@ -1,9 +1,10 @@
 use super::word_freq_pair::WordFreqPair;
 use crate::{
-    db::{QueryError, QueryFactory, GET_3},
+    db::{QueryError, QueryFactory},
     n_grams::{Printable, Queryable},
 };
-use scylla::{statement::Consistency, IntoTypedRows, Session};
+use futures::stream::StreamExt;
+use scylla::{statement::Consistency, Session};
 use serde::{Deserialize, Serialize};
 use std::{
     sync::{mpsc, Arc},
@@ -113,7 +114,10 @@ impl VaryingQueryResult {
     where
         T: Queryable + Printable + Clone + Send + Sync + 'static,
     {
-        let query = GET_3;
+        let query = match input.get_query(None) {
+            Ok(query) => query,
+            Err(err) => return Err(err.to_string()),
+        };
         let consistency = Consistency::One;
 
         let start_time = std::time::Instant::now();
@@ -127,8 +131,8 @@ impl VaryingQueryResult {
 
         let s = Arc::clone(&session);
 
-        let rows = match query.execute_one(s, input.to_vec()).await {
-            Ok(rows) => rows,
+        let mut row_stream = match query.execute_one(s, input.to_vec()).await {
+            Ok(rows) => rows.into_typed::<(i32,)>(),
             Err(err) => match err {
                 QueryError::ScyllaError => return Err("Can not execute query".to_string()),
                 QueryError::NotFound => {
@@ -147,11 +151,8 @@ impl VaryingQueryResult {
 
         let mut provided_n_gram_frequency = 0;
 
-        for row in rows.into_typed::<(String, String, String, i32)>() {
-            let (_word1, _word2, _word3, freq) = match row {
-                Ok(row) => row,
-                Err(err) => return Err(err.to_string()),
-            };
+        if let Some(row) = row_stream.next().await {
+            let (freq,) = row.unwrap();
             provided_n_gram_frequency = freq;
         }
 
