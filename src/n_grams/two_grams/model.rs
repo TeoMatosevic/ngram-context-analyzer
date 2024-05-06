@@ -1,42 +1,40 @@
 use super::super::word_freq_pair::DEFAULT_AMOUNT_OF_WORD_FREQ_PAIRS;
 use crate::{
-    db::{GET_BY_FIRST_AND_SECOND_3, GET_BY_FIRST_AND_THIRD_3, GET_BY_SECOND_AND_THIRD_3},
+    db::{GET_BY_FIRST_2, GET_BY_SECOND_2},
     n_grams::{Printable, Queryable},
     parse_amount, parse_varying_indexes, ParseQueryParams,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-/// Represents the three gram that is given as input.
+/// Represents a two-gram.
 ///
 /// # Fields
 ///
-/// * `word1` - The first word of the three-gram.
-/// * `word2` - The second word of the three-gram.
-/// * `word3` - The third word of the three-gram.
+/// * `word1` - The first word of the two-gram.
+/// * `word2` - The second word of the two-gram.
 ///
 /// # Implements
 ///
 /// * `Queryable` - Provides methods to query the database.
-/// * `Printable` - Provides method for printing.
-#[derive(Serialize, Deserialize, Clone)]
-pub struct ThreeGramInput {
+/// * `Printable` - Provides method for printing.   
+#[derive(Clone, Serialize, Deserialize)]
+pub struct TwoGramInput {
     pub word1: String,
     pub word2: String,
-    pub word3: String,
 }
 
-impl ThreeGramInput {
-    /// Creates a new `ThreeGramInput` from the given query.
+impl TwoGramInput {
+    /// Creates a new `TwoGramInput` from the given query.
     ///
     /// # Arguments
     ///
-    /// * `query` - The query that contains the three-gram.
+    /// * `query` - The query that contains the two-gram.
     ///
     /// # Returns
     ///
-    /// A `Result` containing the `ThreeGramInput` if the query is valid, otherwise a `String` with the error message.
-    pub fn from(query: &HashMap<String, String>) -> Result<ThreeGramInput, String> {
+    /// A `Result` containing the `TwoGramInput` if the query is valid, otherwise a `String` with the error message.
+    pub fn from(query: &HashMap<String, String>) -> Result<TwoGramInput, String> {
         let word1 = match query.get("word1") {
             Some(word1) => word1,
             None => return Err("word1 is required".to_string()),
@@ -47,38 +45,30 @@ impl ThreeGramInput {
             None => return Err("word2 is required".to_string()),
         };
 
-        let word3 = match query.get("word3") {
-            Some(word3) => word3,
-            None => return Err("word3 is required".to_string()),
-        };
-
-        Ok(ThreeGramInput {
+        Ok(TwoGramInput {
             word1: word1.to_string(),
             word2: word2.to_string(),
-            word3: word3.to_string(),
         })
     }
 }
 
-impl Queryable for ThreeGramInput {
+impl Queryable for TwoGramInput {
     fn to_vec(&self) -> Vec<&str> {
-        vec![&self.word1, &self.word2, &self.word3]
+        vec![&self.word1, &self.word2]
     }
 
     fn get_query(&self, index: i32) -> Result<&str, String> {
         match index {
-            1 => Ok(GET_BY_SECOND_AND_THIRD_3),
-            2 => Ok(GET_BY_FIRST_AND_THIRD_3),
-            3 => Ok(GET_BY_FIRST_AND_SECOND_3),
+            1 => Ok(GET_BY_SECOND_2),
+            2 => Ok(GET_BY_FIRST_2),
             _ => Err("Invalid index".to_string()),
         }
     }
 
     fn get_input(&self, index: i32) -> Result<Vec<&String>, String> {
         match index {
-            1 => Ok(vec![&self.word2, &self.word3]),
-            2 => Ok(vec![&self.word1, &self.word3]),
-            3 => Ok(vec![&self.word1, &self.word2]),
+            1 => Ok(vec![&self.word2]),
+            2 => Ok(vec![&self.word1]),
             _ => Err("Invalid index".to_string()),
         }
     }
@@ -87,40 +77,39 @@ impl Queryable for ThreeGramInput {
         match index {
             1 => Ok(&self.word1),
             2 => Ok(&self.word2),
-            3 => Ok(&self.word3),
             _ => Err("Invalid index".to_string()),
         }
     }
 }
 
-impl Printable for ThreeGramInput {
+impl Printable for TwoGramInput {
     fn print(&self) -> String {
-        format!("{} {} {}", self.word1, self.word2, self.word3)
+        format!("{} {}", self.word1, self.word2)
     }
 }
 
-/// Represents the query parameters for the three-gram.
+/// Represents the query parameters for a two-gram.
 ///
 /// # Fields
 ///
-/// * `three_gram` - The three-gram.
-/// * `varying_indexes` - The indexes that are varying.
-/// * `amount` - The amount of words to return.
+/// * `two_gram` - The two-gram.
+/// * `varying_indexes` - The indexes that will vary.
+/// * `amount` - The amount of word frequency pairs to return.
 ///
 /// # Implements
 ///
-/// * `ParseQueryParams` - Parses the query parameters.
-pub struct ThreeGramQueryParams {
-    pub three_gram: ThreeGramInput,
+/// * `ParseQueryParams` - Provides methods to parse the query parameters.
+pub struct TwoGramQueryParams {
+    pub two_gram: TwoGramInput,
     pub varying_indexes: Option<Vec<i32>>,
     pub amount: i32,
 }
 
-impl ParseQueryParams for ThreeGramQueryParams {
-    fn from(query: &HashMap<String, String>) -> Result<Self, String> {
-        let three_gram = match ThreeGramInput::from(query) {
-            Ok(three_gram) => three_gram,
-            Err(err) => return Err(err),
+impl ParseQueryParams for TwoGramQueryParams {
+    fn from(query: &HashMap<String, String>) -> Result<TwoGramQueryParams, String> {
+        let two_gram = match TwoGramInput::from(query) {
+            Ok(two_gram) => two_gram,
+            Err(error) => return Err(error),
         };
 
         let varying_indexes = match query.get("vary") {
@@ -139,8 +128,8 @@ impl ParseQueryParams for ThreeGramQueryParams {
             None => DEFAULT_AMOUNT_OF_WORD_FREQ_PAIRS,
         };
 
-        Ok(ThreeGramQueryParams {
-            three_gram,
+        Ok(TwoGramQueryParams {
+            two_gram,
             varying_indexes,
             amount,
         })
@@ -159,7 +148,7 @@ impl ParseQueryParams for ThreeGramQueryParams {
 fn validate(indexes: &Vec<i32>) -> Result<(), String> {
     let mut new = vec![];
     for index in indexes {
-        if *index < 1 || *index > 3 {
+        if *index < 1 || *index > 2 {
             return Err("Invalid index".to_string());
         }
         if new.contains(index) {

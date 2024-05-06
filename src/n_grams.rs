@@ -6,6 +6,10 @@ pub mod routers;
 ///
 /// This module contains the implementation of three-grams.
 mod three_grams;
+/// The `two_grams` module.
+/// 
+/// This module contains the implementation of two-grams.
+mod two_grams;
 /// The `vary_n_gram` module.
 ///
 /// This module contains the implementation of varying n-grams.

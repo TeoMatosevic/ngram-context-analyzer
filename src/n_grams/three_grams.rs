@@ -5,7 +5,7 @@
 /// * `model` - Contains the model of the three grams.
 /// * `routers` - Contains the routers of the three grams.
 mod model;
-pub mod routers;
+mod routers;
 
 /// Http request handlers for the three grams.
 pub use routers::get_three_gram;

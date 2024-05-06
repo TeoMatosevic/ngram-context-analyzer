@@ -17,6 +17,14 @@ pub static GET_BY_FIRST_AND_THIRD_3: &str =
 pub static GET_BY_FIRST_AND_SECOND_3: &str =
     "SELECT word_3, freq FROM n_grams.three_grams_1_2_pk WHERE word_1 = ? AND word_2 = ?";
 
+pub static GET_2: &str = "SELECT * FROM n_grams.two_grams_1_pk WHERE word_1 = ? AND word_2 = ?";
+
+pub static GET_BY_SECOND_2: &str =
+    "SELECT word_1, freq FROM n_grams.two_grams_2_pk WHERE word_2 = ?";
+
+pub static GET_BY_FIRST_2: &str =
+    "SELECT word_2, freq FROM n_grams.two_grams_1_pk WHERE word_1 = ?";
+
 /// Represents the error that can occur when querying the database.
 ///
 /// # Fields

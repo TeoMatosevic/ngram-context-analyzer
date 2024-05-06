@@ -4,6 +4,9 @@ use scylla::{statement::Consistency, IntoTypedRows, Session};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
+/// The default amount of word frequency pairs to return.
+pub static DEFAULT_AMOUNT_OF_WORD_FREQ_PAIRS: i32 = 50;
+
 /// Represents a word and its frequency.
 ///
 /// # Fields
@@ -44,7 +47,6 @@ impl WordFreqPair {
     /// * `session` - The ScyllaDB session.
     /// * `index` - The index of the word.
     /// * `input` - Generic input that implements `Queryable`.
-    /// * `amount` - The amount of words to return.
     ///
     /// # Returns
     ///

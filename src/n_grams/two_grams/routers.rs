@@ -1,21 +1,21 @@
-use super::{super::vary_n_gram::VaryingQueryResult, model::ThreeGramQueryParams};
+use super::{super::vary_n_gram::VaryingQueryResult, model::TwoGramQueryParams};
 use crate::{error_handler::HttpError, parse, AppData};
 use actix_web::{get, web, HttpResponse};
 use std::collections::HashMap;
 use std::sync::Arc;
 
-/// Handles the GET request to get a three-gram.
+/// Handles the GET request to get a two-gram.
 ///
 /// # Arguments
 ///
-/// * `query` - The query that contains the three-gram and additional information.
+/// * `query` - The query that contains the two-gram and additional information.
 /// * `data` - The application data.
 ///
 /// # Returns
 ///
-/// A `Result` containing the `HttpResponse` with the three-gram if the request is successful, otherwise a `HttpError`.
-#[get("/three-gram")]
-pub async fn get_three_gram(
+/// A `Result` containing the `HttpResponse` with the two-gram if the request is successful, otherwise a `HttpError`.
+#[get("/two-gram")]
+pub async fn get_two_gram(
     query: web::Query<HashMap<String, String>>,
     data: web::Data<AppData>,
 ) -> Result<HttpResponse, HttpError> {
@@ -23,7 +23,7 @@ pub async fn get_three_gram(
 
     let query = query.into_inner().clone();
 
-    let input = match parse::<ThreeGramQueryParams>(&query) {
+    let input = match parse::<TwoGramQueryParams>(&query) {
         Ok(input) => input,
         Err(err) => return Ok(HttpResponse::BadRequest().json(err)),
     };
@@ -33,7 +33,7 @@ pub async fn get_three_gram(
             let s = Arc::clone(&session);
 
             let result =
-                VaryingQueryResult::get_varying(s, input.three_gram, indexes, input.amount).await;
+                VaryingQueryResult::get_varying(s, input.two_gram, indexes, input.amount).await;
 
             let result = match result {
                 Ok(result) => result,
@@ -47,17 +47,17 @@ pub async fn get_three_gram(
         }
         None => {
             let s = Arc::clone(&session);
-            let three_gram = VaryingQueryResult::get_one(s, input.three_gram).await;
+            let two_gram = VaryingQueryResult::get_one(s, input.two_gram).await;
 
-            let three_gram = match three_gram {
-                Ok(three_gram) => three_gram,
+            let two_gram = match two_gram {
+                Ok(two_gram) => two_gram,
                 Err(e) => {
                     eprintln!("{}", e);
                     return Ok(HttpResponse::BadRequest().json(e));
                 }
             };
 
-            Ok(HttpResponse::Ok().json(three_gram))
+            return Ok(HttpResponse::Ok().json(two_gram));
         }
     }
 }

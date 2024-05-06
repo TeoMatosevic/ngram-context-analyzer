@@ -9,6 +9,7 @@ pub mod error_handler;
 /// # Modules
 ///
 /// * `three_grams` - Contains the three-grams.
+/// * `two_grams` - Contains the two-grams.
 pub mod n_grams;
 
 /// Represents the application data.
@@ -27,6 +28,7 @@ pub struct AppData {
 /// # Arguments
 ///
 /// * `vary` - The varying indexes.
+/// * `validate` - The validation function.
 ///
 /// # Returns
 ///
@@ -34,8 +36,11 @@ pub struct AppData {
 ///
 /// # Errors
 ///
-/// If the indexes are invalid, a `String` with the error message will be returned.
-pub fn parse_varying_indexes(vary: &str) -> Result<Vec<i32>, String> {
+/// If the indexes are invalid, a `String` with the error message will be returned
+pub fn parse_varying_indexes(
+    vary: &str,
+    validate: fn(&Vec<i32>) -> Result<(), String>,
+) -> Result<Vec<i32>, String> {
     let indexes_str = vary.split(",").collect::<Vec<&str>>();
     let mut indexes: Vec<i32> = vec![];
 
@@ -46,13 +51,10 @@ pub fn parse_varying_indexes(vary: &str) -> Result<Vec<i32>, String> {
         }
     }
 
-    for index in &indexes {
-        if *index < 1 || *index > 3 {
-            return Err("Invalid index".to_string());
-        }
+    match validate(&indexes) {
+        Ok(_) => Ok(indexes),
+        Err(err) => Err(err),
     }
-
-    Ok(indexes)
 }
 
 /// Parses the amount from the query.
