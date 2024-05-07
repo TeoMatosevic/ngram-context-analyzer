@@ -164,3 +164,212 @@ fn validate(indexes: &Vec<i32>) -> Result<(), String> {
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_two_gram_input_from() {
+        let mut query = HashMap::new();
+
+        query.insert("word1".to_string(), "word1".to_string());
+        query.insert("word2".to_string(), "word2".to_string());
+
+        let result = TwoGramInput::from(&query).unwrap();
+
+        assert_eq!(result.word1, "word1");
+    }
+
+    #[test]
+    fn test_two_gram_input_from_missing_word1() {
+        let mut query = HashMap::new();
+
+        query.insert("word2".to_string(), "word2".to_string());
+
+        let result = TwoGramInput::from(&query);
+
+        assert_eq!(result.is_err(), true);
+    }
+
+    #[test]
+    fn test_two_gram_to_vec() {
+        let input = TwoGramInput {
+            word1: "word1".to_string(),
+            word2: "word2".to_string(),
+        };
+
+        let result = input.to_vec();
+
+        assert_eq!(result, vec!["word1", "word2"]);
+    }
+
+    #[test]
+    fn test_two_gram_get_query() {
+        let input = TwoGramInput {
+            word1: "word1".to_string(),
+            word2: "word2".to_string(),
+        };
+
+        let result = input.get_query(Some(1)).unwrap();
+
+        assert_eq!(result, GET_BY_SECOND_2);
+    }
+
+    #[test]
+    fn test_two_gram_get_query_freq() {
+        let input = TwoGramInput {
+            word1: "word1".to_string(),
+            word2: "word2".to_string(),
+        };
+
+        let result = input.get_query(None).unwrap();
+
+        assert_eq!(result, GET_FREQ_2);
+    }
+
+    #[test]
+    fn test_two_gram_get_input() {
+        let input = TwoGramInput {
+            word1: "word1".to_string(),
+            word2: "word2".to_string(),
+        };
+
+        let result = input.get_input(1).unwrap();
+
+        assert_eq!(result, vec![&"word2"]);
+    }
+
+    #[test]
+    fn test_two_gram_get_word() {
+        let input = TwoGramInput {
+            word1: "word1".to_string(),
+            word2: "word2".to_string(),
+        };
+
+        let result = input.get_word(1).unwrap();
+
+        assert_eq!(result, &"word1");
+    }
+
+    #[test]
+    fn test_two_gram_print() {
+        let input = TwoGramInput {
+            word1: "word1".to_string(),
+            word2: "word2".to_string(),
+        };
+
+        let result = input.print();
+
+        assert_eq!(result, "word1 word2");
+    }
+
+    #[test]
+    fn test_creating_two_gram_query_params() {
+        let mut query = HashMap::new();
+
+        query.insert("word1".to_string(), "word1".to_string());
+        query.insert("word2".to_string(), "word2".to_string());
+        query.insert("vary".to_string(), "1".to_string());
+        query.insert("amount".to_string(), "10".to_string());
+
+        let result = <TwoGramQueryParams as ParseQueryParams>::from(&query).unwrap();
+
+        assert_eq!(result.two_gram.word1, "word1");
+    }
+
+    #[test]
+    fn test_default_amount() {
+        let mut query = HashMap::new();
+
+        query.insert("word1".to_string(), "word1".to_string());
+        query.insert("word2".to_string(), "word2".to_string());
+        query.insert("vary".to_string(), "1".to_string());
+
+        let result = <TwoGramQueryParams as ParseQueryParams>::from(&query).unwrap();
+
+        assert_eq!(result.amount, DEFAULT_AMOUNT_OF_WORD_FREQ_PAIRS);
+    }
+
+    #[test]
+    fn test_creating_two_gram_query_params_fail_amount_wrong() {
+        let mut query = HashMap::new();
+
+        query.insert("word1".to_string(), "word1".to_string());
+        query.insert("word2".to_string(), "word2".to_string());
+        query.insert("vary".to_string(), "1".to_string());
+        query.insert("amount".to_string(), "wrong".to_string());
+
+        let result = <TwoGramQueryParams as ParseQueryParams>::from(&query);
+
+        assert_eq!(result.is_err(), true);
+    }
+
+    #[test]
+    fn test_creating_two_gram_query_params_fail_word1_missing() {
+        let mut query = HashMap::new();
+
+        query.insert("word2".to_string(), "word2".to_string());
+        query.insert("vary".to_string(), "1".to_string());
+        query.insert("amount".to_string(), "10".to_string());
+
+        let result = <TwoGramQueryParams as ParseQueryParams>::from(&query);
+
+        assert_eq!(result.is_err(), true);
+    }
+
+    #[test]
+    fn test_creating_two_gram_query_params_fail_vary_index_out_of_bounds() {
+        let mut query = HashMap::new();
+
+        query.insert("word1".to_string(), "word1".to_string());
+        query.insert("word2".to_string(), "word2".to_string());
+        query.insert("vary".to_string(), "3".to_string());
+        query.insert("amount".to_string(), "10".to_string());
+
+        let result = <TwoGramQueryParams as ParseQueryParams>::from(&query);
+
+        assert_eq!(result.is_err(), true);
+    }
+
+    #[test]
+    fn test_creating_two_gram_query_params_fail_vary_index_duplicate() {
+        let mut query = HashMap::new();
+
+        query.insert("word1".to_string(), "word1".to_string());
+        query.insert("word2".to_string(), "word2".to_string());
+        query.insert("vary".to_string(), "1,1".to_string());
+        query.insert("amount".to_string(), "10".to_string());
+
+        let result = <TwoGramQueryParams as ParseQueryParams>::from(&query);
+
+        assert_eq!(result.is_err(), true);
+    }
+
+    #[test]
+    fn test_validate() {
+        let indexes = vec![1, 2];
+
+        let result = validate(&indexes);
+
+        assert_eq!(result.is_ok(), true);
+    }
+
+    #[test]
+    fn test_validate_fail_index_out_of_bounds() {
+        let indexes = vec![1, 3];
+
+        let result = validate(&indexes);
+
+        assert_eq!(result.is_err(), true);
+    }
+
+    #[test]
+    fn test_validate_fail_index_duplicate() {
+        let indexes = vec![1, 1];
+
+        let result = validate(&indexes);
+
+        assert_eq!(result.is_err(), true);
+    }
+}

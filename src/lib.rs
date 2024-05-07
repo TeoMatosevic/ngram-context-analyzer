@@ -107,3 +107,38 @@ pub trait ParseQueryParams: Sized {
 pub fn parse<T: ParseQueryParams>(query: &HashMap<String, String>) -> Result<T, String> {
     T::from(query)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const MOCK_VALIDATION_FN: fn(&Vec<i32>) -> Result<(), String> = |_indexes: &Vec<i32>| Ok(());
+
+    #[test]
+    fn test_parse_varying_indexes() {
+        let indexes = parse_varying_indexes("1,2,3", MOCK_VALIDATION_FN);
+
+        assert_eq!(indexes, Ok(vec![1, 2, 3]));
+    }
+
+    #[test]
+    fn test_parse_varying_indexes_invalid_index() {
+        let indexes = parse_varying_indexes("1,2,3a", MOCK_VALIDATION_FN);
+
+        assert_eq!(indexes.is_err(), true);
+    }
+
+    #[test]
+    fn test_parse_amount() {
+        let amount = parse_amount("1");
+
+        assert_eq!(amount, Ok(1));
+    }
+
+    #[test]
+    fn test_parse_amount_invalid_amount() {
+        let amount = parse_amount("1a");
+
+        assert_eq!(amount.is_err(), true);
+    }
+}

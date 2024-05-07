@@ -120,3 +120,54 @@ impl WordFreqPair {
         pairs.iter().find(|pair| pair.word == word)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::super::super::db::init;
+    use super::*;
+    use crate::n_grams::three_grams::model::ThreeGramInput;
+    use std::collections::HashMap;
+
+    #[test]
+    fn test_new() {
+        let word_freq_pair = WordFreqPair::new("word".to_string(), 1);
+
+        assert_eq!(word_freq_pair.word, "word");
+        assert_eq!(word_freq_pair.frequency, 1);
+    }
+
+    #[tokio::test]
+    async fn test_from() {
+        let session = init().await.unwrap();
+
+        let mut query_map = HashMap::new();
+
+        query_map.insert("word1".to_string(), "ja".to_string());
+        query_map.insert("word2".to_string(), "sam".to_string());
+        query_map.insert("word3".to_string(), "gledao".to_string());
+        query_map.insert("vary".to_string(), "1,2".to_string());
+        query_map.insert("amount".to_string(), "50".to_string());
+
+        let input = ThreeGramInput::from(&query_map).unwrap();
+
+        let result = WordFreqPair::from(Arc::clone(&session), &1, &input).await;
+
+        assert!(result.is_ok());
+        let result = result.unwrap();
+
+        assert!(result.len() >= 50);
+    }
+
+    #[test]
+    fn test_find() {
+        let word_freq_pair1 = WordFreqPair::new("word".to_string(), 1);
+        let word_freq_pair2 = WordFreqPair::new("word2".to_string(), 2);
+        let word_freq_pair3 = WordFreqPair::new("word3".to_string(), 3);
+        let pairs = vec![word_freq_pair1, word_freq_pair2, word_freq_pair3];
+
+        let result = WordFreqPair::find(&pairs, "word");
+
+        assert!(result.is_some());
+        assert_eq!(result.unwrap().word, "word");
+    }
+}

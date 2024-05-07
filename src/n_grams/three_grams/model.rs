@@ -177,3 +177,231 @@ fn validate(indexes: &Vec<i32>) -> Result<(), String> {
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_creating_three_gram_input() {
+        let mut query = HashMap::new();
+
+        query.insert("word1".to_string(), "hello".to_string());
+        query.insert("word2".to_string(), "world".to_string());
+        query.insert("word3".to_string(), "foo".to_string());
+
+        let three_gram = ThreeGramInput::from(&query).unwrap();
+
+        assert_eq!(three_gram.word1, "hello");
+    }
+
+    #[test]
+    fn test_creating_three_gram_input_fail() {
+        let mut query = HashMap::new();
+
+        query.insert("word1".to_string(), "hello".to_string());
+        query.insert("word2".to_string(), "world".to_string());
+
+        let three_gram = ThreeGramInput::from(&query);
+
+        assert_eq!(three_gram.is_err(), true);
+    }
+
+    #[test]
+    fn test_three_gram_to_vec() {
+        let three_gram = ThreeGramInput {
+            word1: "hello".to_string(),
+            word2: "world".to_string(),
+            word3: "foo".to_string(),
+        };
+
+        let vec = three_gram.to_vec();
+
+        assert_eq!(vec, vec!["hello", "world", "foo"]);
+    }
+
+    #[test]
+    fn test_three_gram_get_query() {
+        let three_gram = ThreeGramInput {
+            word1: "hello".to_string(),
+            word2: "world".to_string(),
+            word3: "foo".to_string(),
+        };
+
+        let query = three_gram.get_query(Some(1)).unwrap();
+
+        assert_eq!(query, GET_BY_SECOND_AND_THIRD_3);
+    }
+
+    #[test]
+    fn test_three_gram_get_query_freq() {
+        let three_gram = ThreeGramInput {
+            word1: "hello".to_string(),
+            word2: "world".to_string(),
+            word3: "foo".to_string(),
+        };
+
+        let query = three_gram.get_query(None).unwrap();
+
+        assert_eq!(query, GET_FREQ_3);
+    }
+
+    #[test]
+    fn test_three_gram_get_input() {
+        let three_gram = ThreeGramInput {
+            word1: "hello".to_string(),
+            word2: "world".to_string(),
+            word3: "foo".to_string(),
+        };
+
+        let input = three_gram.get_input(1).unwrap();
+
+        assert_eq!(input, vec![&"world", &"foo"]);
+    }
+
+    #[test]
+    fn test_three_gram_get_word() {
+        let three_gram = ThreeGramInput {
+            word1: "hello".to_string(),
+            word2: "world".to_string(),
+            word3: "foo".to_string(),
+        };
+
+        let word = three_gram.get_word(1).unwrap();
+
+        assert_eq!(word, &"hello");
+    }
+
+    #[test]
+    fn test_three_gram_print() {
+        let three_gram = ThreeGramInput {
+            word1: "hello".to_string(),
+            word2: "world".to_string(),
+            word3: "foo".to_string(),
+        };
+
+        let print = three_gram.print();
+
+        assert_eq!(print, "hello world foo");
+    }
+
+    #[test]
+    fn test_creating_three_gram_query_params() {
+        let mut query = HashMap::new();
+
+        query.insert("word1".to_string(), "hello".to_string());
+        query.insert("word2".to_string(), "world".to_string());
+        query.insert("word3".to_string(), "foo".to_string());
+        query.insert("vary".to_string(), "1,2".to_string());
+        query.insert("amount".to_string(), "10".to_string());
+
+        let three_gram_query_params =
+            <ThreeGramQueryParams as ParseQueryParams>::from(&query).unwrap();
+
+        assert_eq!(three_gram_query_params.amount, 10);
+    }
+
+    #[test]
+    fn test_default_amount() {
+        let mut query = HashMap::new();
+
+        query.insert("word1".to_string(), "hello".to_string());
+        query.insert("word2".to_string(), "world".to_string());
+        query.insert("word3".to_string(), "foo".to_string());
+        query.insert("vary".to_string(), "1,2".to_string());
+
+        let three_gram_query_params =
+            <ThreeGramQueryParams as ParseQueryParams>::from(&query).unwrap();
+
+        assert_eq!(
+            three_gram_query_params.amount,
+            DEFAULT_AMOUNT_OF_WORD_FREQ_PAIRS
+        );
+    }
+
+    #[test]
+    fn test_creating_three_gram_query_params_fail_amount_wrong() {
+        let mut query = HashMap::new();
+
+        query.insert("word1".to_string(), "hello".to_string());
+        query.insert("word2".to_string(), "world".to_string());
+        query.insert("word3".to_string(), "foo".to_string());
+        query.insert("vary".to_string(), "1,2".to_string());
+        query.insert("amount".to_string(), "ten".to_string());
+
+        let three_gram_query_params = <ThreeGramQueryParams as ParseQueryParams>::from(&query);
+
+        assert_eq!(three_gram_query_params.is_err(), true);
+    }
+
+    #[test]
+    fn test_creating_three_gram_query_params_fail_word1_missing() {
+        let mut query = HashMap::new();
+
+        query.insert("word2".to_string(), "world".to_string());
+        query.insert("word3".to_string(), "foo".to_string());
+        query.insert("vary".to_string(), "1,2".to_string());
+        query.insert("amount".to_string(), "10".to_string());
+
+        let three_gram = <ThreeGramQueryParams as ParseQueryParams>::from(&query);
+
+        assert_eq!(three_gram.is_err(), true);
+    }
+
+    #[test]
+    fn test_creating_three_gram_query_params_fail_vary_index_out_of_bounds() {
+        let mut query = HashMap::new();
+
+        query.insert("word1".to_string(), "hello".to_string());
+        query.insert("word2".to_string(), "world".to_string());
+        query.insert("word3".to_string(), "foo".to_string());
+        query.insert("vary".to_string(), "1,2,4".to_string());
+        query.insert("amount".to_string(), "10".to_string());
+
+        let three_gram = <ThreeGramQueryParams as ParseQueryParams>::from(&query);
+
+        assert_eq!(three_gram.is_err(), true);
+    }
+
+    #[test]
+    fn test_creating_three_gram_query_params_fail_vary_index_duplicate() {
+        let mut query = HashMap::new();
+
+        query.insert("word1".to_string(), "hello".to_string());
+        query.insert("word2".to_string(), "world".to_string());
+        query.insert("word3".to_string(), "foo".to_string());
+        query.insert("vary".to_string(), "1,2,2".to_string());
+        query.insert("amount".to_string(), "10".to_string());
+
+        let three_gram = <ThreeGramQueryParams as ParseQueryParams>::from(&query);
+
+        assert_eq!(three_gram.is_err(), true);
+    }
+
+    #[test]
+    fn test_validate() {
+        let indexes = vec![1, 2, 3];
+
+        let result = validate(&indexes);
+
+        assert_eq!(result.is_ok(), true);
+    }
+
+    #[test]
+    fn test_validate_fail_index_out_of_bounds() {
+        let indexes = vec![1, 2, 4];
+
+        let result = validate(&indexes);
+
+        assert_eq!(result.is_err(), true);
+    }
+
+    #[test]
+    fn test_validate_fail_index_duplicate() {
+        let indexes = vec![1, 2, 2];
+
+        let result = validate(&indexes);
+
+        assert_eq!(result.is_err(), true);
+    }
+}

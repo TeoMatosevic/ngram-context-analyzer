@@ -300,3 +300,39 @@ where
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_find_freq() {
+        let vary = VaryingNGram {
+            index: 1,
+            word: "hello".to_string(),
+            solutions: vec![
+                WordFreqPair::new("hello".to_string(), 1),
+                WordFreqPair::new("world".to_string(), 2),
+            ],
+        };
+        let word = "hello".to_string();
+        assert_eq!(VaryingNGram::find_freq(&vary, &word), Ok(1));
+    }
+
+    #[test]
+    fn test_find_freq_fail() {
+        let vary = VaryingNGram {
+            index: 1,
+            word: "hello".to_string(),
+            solutions: vec![
+                WordFreqPair::new("hello".to_string(), 1),
+                WordFreqPair::new("world".to_string(), 2),
+            ],
+        };
+        let word = "test".to_string();
+        assert_eq!(
+            VaryingNGram::find_freq(&vary, &word),
+            Err("No pair found".to_string())
+        );
+    }
+}
