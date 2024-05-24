@@ -1,8 +1,6 @@
-use super::super::word_freq_pair::DEFAULT_AMOUNT_OF_WORD_FREQ_PAIRS;
 use crate::{
     db::{GET_BY_FIRST_2, GET_BY_SECOND_2, GET_FREQ_2},
     n_grams::{Printable, Queryable},
-    parse_amount, parse_varying_indexes, ParseQueryParams,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -91,54 +89,6 @@ impl Printable for TwoGramInput {
     }
 }
 
-/// Represents the query parameters for a two-gram.
-///
-/// # Fields
-///
-/// * `two_gram` - The two-gram.
-/// * `varying_indexes` - The indexes that will vary.
-/// * `amount` - The amount of word frequency pairs to return.
-///
-/// # Implements
-///
-/// * `ParseQueryParams` - Provides methods to parse the query parameters.
-pub struct TwoGramQueryParams {
-    pub two_gram: TwoGramInput,
-    pub varying_indexes: Option<Vec<i32>>,
-    pub amount: i32,
-}
-
-impl ParseQueryParams for TwoGramQueryParams {
-    fn from(query: &HashMap<String, String>) -> Result<TwoGramQueryParams, String> {
-        let two_gram = match TwoGramInput::from(query) {
-            Ok(two_gram) => two_gram,
-            Err(error) => return Err(error),
-        };
-
-        let varying_indexes = match query.get("vary") {
-            Some(vary) => match parse_varying_indexes(vary, validate) {
-                Ok(indexes) => Some(indexes),
-                Err(err) => return Err(err),
-            },
-            None => None,
-        };
-
-        let amount = match query.get("amount") {
-            Some(amount) => match parse_amount(amount) {
-                Ok(amount) => amount,
-                Err(err) => return Err(err),
-            },
-            None => DEFAULT_AMOUNT_OF_WORD_FREQ_PAIRS,
-        };
-
-        Ok(TwoGramQueryParams {
-            two_gram,
-            varying_indexes,
-            amount,
-        })
-    }
-}
-
 /// Validates the indexes.
 ///
 /// # Arguments
@@ -148,7 +98,7 @@ impl ParseQueryParams for TwoGramQueryParams {
 /// # Returns
 ///
 /// A `Result` containing `()` if the indexes are valid, otherwise a `String` with the error message.
-fn validate(indexes: &Vec<i32>) -> Result<(), String> {
+pub fn validate(indexes: &Vec<i32>) -> Result<(), String> {
     let mut new = vec![];
     for index in indexes {
         if *index < 1 || *index > 2 {
@@ -262,88 +212,6 @@ mod tests {
         let result = input.print();
 
         assert_eq!(result, "word1 word2");
-    }
-
-    #[test]
-    fn test_creating_two_gram_query_params() {
-        let mut query = HashMap::new();
-
-        query.insert("word1".to_string(), "word1".to_string());
-        query.insert("word2".to_string(), "word2".to_string());
-        query.insert("vary".to_string(), "1".to_string());
-        query.insert("amount".to_string(), "10".to_string());
-
-        let result = <TwoGramQueryParams as ParseQueryParams>::from(&query).unwrap();
-
-        assert_eq!(result.two_gram.word1, "word1");
-    }
-
-    #[test]
-    fn test_default_amount() {
-        let mut query = HashMap::new();
-
-        query.insert("word1".to_string(), "word1".to_string());
-        query.insert("word2".to_string(), "word2".to_string());
-        query.insert("vary".to_string(), "1".to_string());
-
-        let result = <TwoGramQueryParams as ParseQueryParams>::from(&query).unwrap();
-
-        assert_eq!(result.amount, DEFAULT_AMOUNT_OF_WORD_FREQ_PAIRS);
-    }
-
-    #[test]
-    fn test_creating_two_gram_query_params_fail_amount_wrong() {
-        let mut query = HashMap::new();
-
-        query.insert("word1".to_string(), "word1".to_string());
-        query.insert("word2".to_string(), "word2".to_string());
-        query.insert("vary".to_string(), "1".to_string());
-        query.insert("amount".to_string(), "wrong".to_string());
-
-        let result = <TwoGramQueryParams as ParseQueryParams>::from(&query);
-
-        assert_eq!(result.is_err(), true);
-    }
-
-    #[test]
-    fn test_creating_two_gram_query_params_fail_word1_missing() {
-        let mut query = HashMap::new();
-
-        query.insert("word2".to_string(), "word2".to_string());
-        query.insert("vary".to_string(), "1".to_string());
-        query.insert("amount".to_string(), "10".to_string());
-
-        let result = <TwoGramQueryParams as ParseQueryParams>::from(&query);
-
-        assert_eq!(result.is_err(), true);
-    }
-
-    #[test]
-    fn test_creating_two_gram_query_params_fail_vary_index_out_of_bounds() {
-        let mut query = HashMap::new();
-
-        query.insert("word1".to_string(), "word1".to_string());
-        query.insert("word2".to_string(), "word2".to_string());
-        query.insert("vary".to_string(), "3".to_string());
-        query.insert("amount".to_string(), "10".to_string());
-
-        let result = <TwoGramQueryParams as ParseQueryParams>::from(&query);
-
-        assert_eq!(result.is_err(), true);
-    }
-
-    #[test]
-    fn test_creating_two_gram_query_params_fail_vary_index_duplicate() {
-        let mut query = HashMap::new();
-
-        query.insert("word1".to_string(), "word1".to_string());
-        query.insert("word2".to_string(), "word2".to_string());
-        query.insert("vary".to_string(), "1,1".to_string());
-        query.insert("amount".to_string(), "10".to_string());
-
-        let result = <TwoGramQueryParams as ParseQueryParams>::from(&query);
-
-        assert_eq!(result.is_err(), true);
     }
 
     #[test]

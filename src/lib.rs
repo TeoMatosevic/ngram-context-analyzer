@@ -1,7 +1,10 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+/// This module contains functions that handle the database operations.
 pub mod db;
+
+/// This module contains the error handler.
 pub mod error_handler;
 
 /// This module contains the n-grams of the application.
@@ -77,25 +80,7 @@ pub fn parse_amount(amount: &str) -> Result<i32, String> {
     }
 }
 
-/// Parses the query parameters.
-pub trait ParseQueryParams: Sized {
-    /// Creates a new instance of the struct from the given query.
-    ///
-    /// # Arguments
-    ///
-    /// * `query` - The query.
-    ///
-    /// # Returns
-    ///
-    /// A `Result` containing the struct if the query is valid, otherwise a `String` with the error message.
-    ///
-    /// # Errors
-    ///
-    /// If the query is invalid, a `String` with the error message will be returned.
-    fn from(query: &HashMap<String, String>) -> Result<Self, String>;
-}
-
-/// Parses the query parameters.
+/// Parses the n from the query.
 ///
 /// # Arguments
 ///
@@ -103,9 +88,15 @@ pub trait ParseQueryParams: Sized {
 ///
 /// # Returns
 ///
-/// A `Result` containing the struct if the query is valid, otherwise a `String` with the error message.
-pub fn parse<T: ParseQueryParams>(query: &HashMap<String, String>) -> Result<T, String> {
-    T::from(query)
+/// A `Result` containing the `i32` if the n is valid, otherwise a `String` with the error message.
+pub fn parse_n(query: &HashMap<String, String>) -> Result<i32, String> {
+    match query.get("n") {
+        Some(n) => match n.parse::<i32>() {
+            Ok(n) => Ok(n),
+            Err(_) => Err("Invalid n".to_string()),
+        },
+        None => Err("Missing n".to_string()),
+    }
 }
 
 #[cfg(test)]

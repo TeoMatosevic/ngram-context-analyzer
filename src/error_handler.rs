@@ -1,5 +1,5 @@
 use actix_web::{http::StatusCode, HttpResponse, ResponseError};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::fmt;
 
@@ -9,7 +9,7 @@ use std::fmt;
 ///
 /// * `error_status_code` - The status code of the error.
 /// * `error_message` - The message of the error.
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct HttpError {
     pub error_status_code: u16,
     pub error_message: String,

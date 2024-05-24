@@ -1,10 +1,8 @@
-use super::super::word_freq_pair::DEFAULT_AMOUNT_OF_WORD_FREQ_PAIRS;
 use crate::{
     db::{
         GET_BY_FIRST_AND_SECOND_3, GET_BY_FIRST_AND_THIRD_3, GET_BY_SECOND_AND_THIRD_3, GET_FREQ_3,
     },
     n_grams::{Printable, Queryable},
-    parse_amount, parse_varying_indexes, ParseQueryParams,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -104,54 +102,6 @@ impl Printable for ThreeGramInput {
     }
 }
 
-/// Represents the query parameters for the three-gram.
-///
-/// # Fields
-///
-/// * `three_gram` - The three-gram.
-/// * `varying_indexes` - The indexes that are varying.
-/// * `amount` - The amount of words to return.
-///
-/// # Implements
-///
-/// * `ParseQueryParams` - Parses the query parameters.
-pub struct ThreeGramQueryParams {
-    pub three_gram: ThreeGramInput,
-    pub varying_indexes: Option<Vec<i32>>,
-    pub amount: i32,
-}
-
-impl ParseQueryParams for ThreeGramQueryParams {
-    fn from(query: &HashMap<String, String>) -> Result<Self, String> {
-        let three_gram = match ThreeGramInput::from(query) {
-            Ok(three_gram) => three_gram,
-            Err(err) => return Err(err),
-        };
-
-        let varying_indexes = match query.get("vary") {
-            Some(vary) => match parse_varying_indexes(vary, validate) {
-                Ok(indexes) => Some(indexes),
-                Err(err) => return Err(err),
-            },
-            None => None,
-        };
-
-        let amount = match query.get("amount") {
-            Some(amount) => match parse_amount(amount) {
-                Ok(amount) => amount,
-                Err(err) => return Err(err),
-            },
-            None => DEFAULT_AMOUNT_OF_WORD_FREQ_PAIRS,
-        };
-
-        Ok(ThreeGramQueryParams {
-            three_gram,
-            varying_indexes,
-            amount,
-        })
-    }
-}
-
 /// Validates the indexes.
 ///
 /// # Arguments
@@ -161,7 +111,7 @@ impl ParseQueryParams for ThreeGramQueryParams {
 /// # Returns
 ///
 /// A `Result` containing `()` if the indexes are valid, otherwise a `String` with the error message.
-fn validate(indexes: &Vec<i32>) -> Result<(), String> {
+pub fn validate(indexes: &Vec<i32>) -> Result<(), String> {
     let mut new = vec![];
     for index in indexes {
         if *index < 1 || *index > 3 {
@@ -283,99 +233,6 @@ mod tests {
         let print = three_gram.print();
 
         assert_eq!(print, "hello world foo");
-    }
-
-    #[test]
-    fn test_creating_three_gram_query_params() {
-        let mut query = HashMap::new();
-
-        query.insert("word1".to_string(), "hello".to_string());
-        query.insert("word2".to_string(), "world".to_string());
-        query.insert("word3".to_string(), "foo".to_string());
-        query.insert("vary".to_string(), "1,2".to_string());
-        query.insert("amount".to_string(), "10".to_string());
-
-        let three_gram_query_params =
-            <ThreeGramQueryParams as ParseQueryParams>::from(&query).unwrap();
-
-        assert_eq!(three_gram_query_params.amount, 10);
-    }
-
-    #[test]
-    fn test_default_amount() {
-        let mut query = HashMap::new();
-
-        query.insert("word1".to_string(), "hello".to_string());
-        query.insert("word2".to_string(), "world".to_string());
-        query.insert("word3".to_string(), "foo".to_string());
-        query.insert("vary".to_string(), "1,2".to_string());
-
-        let three_gram_query_params =
-            <ThreeGramQueryParams as ParseQueryParams>::from(&query).unwrap();
-
-        assert_eq!(
-            three_gram_query_params.amount,
-            DEFAULT_AMOUNT_OF_WORD_FREQ_PAIRS
-        );
-    }
-
-    #[test]
-    fn test_creating_three_gram_query_params_fail_amount_wrong() {
-        let mut query = HashMap::new();
-
-        query.insert("word1".to_string(), "hello".to_string());
-        query.insert("word2".to_string(), "world".to_string());
-        query.insert("word3".to_string(), "foo".to_string());
-        query.insert("vary".to_string(), "1,2".to_string());
-        query.insert("amount".to_string(), "ten".to_string());
-
-        let three_gram_query_params = <ThreeGramQueryParams as ParseQueryParams>::from(&query);
-
-        assert_eq!(three_gram_query_params.is_err(), true);
-    }
-
-    #[test]
-    fn test_creating_three_gram_query_params_fail_word1_missing() {
-        let mut query = HashMap::new();
-
-        query.insert("word2".to_string(), "world".to_string());
-        query.insert("word3".to_string(), "foo".to_string());
-        query.insert("vary".to_string(), "1,2".to_string());
-        query.insert("amount".to_string(), "10".to_string());
-
-        let three_gram = <ThreeGramQueryParams as ParseQueryParams>::from(&query);
-
-        assert_eq!(three_gram.is_err(), true);
-    }
-
-    #[test]
-    fn test_creating_three_gram_query_params_fail_vary_index_out_of_bounds() {
-        let mut query = HashMap::new();
-
-        query.insert("word1".to_string(), "hello".to_string());
-        query.insert("word2".to_string(), "world".to_string());
-        query.insert("word3".to_string(), "foo".to_string());
-        query.insert("vary".to_string(), "1,2,4".to_string());
-        query.insert("amount".to_string(), "10".to_string());
-
-        let three_gram = <ThreeGramQueryParams as ParseQueryParams>::from(&query);
-
-        assert_eq!(three_gram.is_err(), true);
-    }
-
-    #[test]
-    fn test_creating_three_gram_query_params_fail_vary_index_duplicate() {
-        let mut query = HashMap::new();
-
-        query.insert("word1".to_string(), "hello".to_string());
-        query.insert("word2".to_string(), "world".to_string());
-        query.insert("word3".to_string(), "foo".to_string());
-        query.insert("vary".to_string(), "1,2,2".to_string());
-        query.insert("amount".to_string(), "10".to_string());
-
-        let three_gram = <ThreeGramQueryParams as ParseQueryParams>::from(&query);
-
-        assert_eq!(three_gram.is_err(), true);
     }
 
     #[test]
