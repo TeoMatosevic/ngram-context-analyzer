@@ -1,7 +1,6 @@
-use super::word_freq_pair::WordFreqPair;
 use crate::{
     db::{QueryError, QueryFactory},
-    n_grams::{Printable, Queryable},
+    n_grams::{word_freq_pair::WordFreqPair, Printable, Queryable},
 };
 use futures::stream::StreamExt;
 use scylla::{statement::Consistency, Session};
@@ -202,6 +201,8 @@ impl VaryingQueryResult {
             let i = input.clone();
             let tx_clone = tx.clone();
 
+            // not the best approach
+            // should use tokio::spawn
             let handle = thread::spawn(move || {
                 let rt = tokio::runtime::Builder::new_multi_thread()
                     .enable_all()

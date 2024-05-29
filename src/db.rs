@@ -1,12 +1,20 @@
-use std::sync::Arc;
-
 use scylla::{
-    prepared_statement::PreparedStatement, statement::Consistency,
+    prepared_statement::PreparedStatement, serialize::row::SerializeRow, statement::Consistency,
     transport::iterator::RowIterator, Session, SessionBuilder,
 };
+use std::sync::Arc;
 
 pub static GET_FREQ_3: &str =
     "SELECT freq FROM n_grams.three_grams_1_2_pk WHERE word_1 = ? AND word_2 = ? AND word_3 = ?";
+
+pub static GET_ALL_3: &str =
+    "SELECT * FROM n_grams.three_grams_1_2_pk where word_1 = ? AND word_2 = ? AND word_3 = ?";
+
+pub static GET_ALL_VARYING_3_3: &str =
+    "SELECT word_3, freq FROM n_grams.three_grams_1_2_pk WHERE word_1 = ? AND word_2 = ? AND word_3 IN ";
+
+pub static GET_ALL_VARYING_3_1: &str =
+    "SELECT word_1, freq FROM n_grams.three_grams_2_3_pk WHERE word_2 = ? AND word_3 = ? AND word_1 IN ";
 
 pub static GET_BY_SECOND_AND_THIRD_3: &str =
     "SELECT word_1, freq FROM n_grams.three_grams_2_3_pk WHERE word_2 = ? AND word_3 = ?";
@@ -20,11 +28,23 @@ pub static GET_BY_FIRST_AND_SECOND_3: &str =
 pub static GET_FREQ_2: &str =
     "SELECT freq FROM n_grams.two_grams_1_pk WHERE word_1 = ? AND word_2 = ?";
 
+pub static GET_ALL_2: &str = "SELECT * FROM n_grams.two_grams_1_pk WHERE word_1 = ? AND word_2 = ?";
+
+pub static GET_ALL_VARYING_2_2: &str =
+    "SELECT word_2, freq FROM n_grams.two_grams_1_pk WHERE word_1 = ? AND word_2 IN ";
+
+pub static GET_ALL_VARYING_2_1: &str =
+    "SELECT word_1, freq FROM n_grams.two_grams_2_pk WHERE word_2 = ? AND word_1 IN ";
+
 pub static GET_BY_SECOND_2: &str =
     "SELECT word_1, freq FROM n_grams.two_grams_2_pk WHERE word_2 = ?";
 
 pub static GET_BY_FIRST_2: &str =
     "SELECT word_2, freq FROM n_grams.two_grams_1_pk WHERE word_1 = ?";
+
+pub static GET_ALL_1: &str = "SELECT word, freq FROM n_grams.one_grams WHERE word = ?";
+
+pub static GET_ALL_VARYING_1: &str = "SELECT * FROM n_grams.one_grams WHERE word IN ";
 
 /// Represents the error that can occur when querying the database.
 ///
@@ -117,7 +137,7 @@ impl QueryFactory {
     pub async fn execute_one(
         &self,
         session: Arc<Session>,
-        params: Vec<&str>,
+        params: impl SerializeRow,
     ) -> Result<RowIterator, QueryError> {
         let query = PreparedStatement::clone(&self.prepared_query);
         let rows_stream = match session.execute_iter(query, params).await {
@@ -126,5 +146,42 @@ impl QueryFactory {
         };
 
         Ok(rows_stream)
+    }
+}
+
+/// Gets the n-gram string.
+///
+/// # Arguments
+///
+/// * `query` - The query.
+/// * `static_params` - The static parameters.
+/// * `varying_param` - The varying parameter.
+///
+/// # Returns
+///
+/// The n-gram string.
+///
+/// # Panics
+///
+/// If the query is invalid, a panic will occur.
+pub fn get_n_gram_string(query: &str, static_params: &Vec<&str>, varying_param: &str) -> String {
+    if query.starts_with("SELECT word_3, freq FROM n_grams.three_grams_1_2_pk WHERE word_1 = ? AND word_2 = ? AND word_3 IN") {
+        let first = static_params.get(0).unwrap();
+        let second = static_params.get(1).unwrap();
+        format!("{} {} {}", first, second, varying_param)
+    } else if query.starts_with("SELECT word_1, freq FROM n_grams.three_grams_2_3_pk WHERE word_2 = ? AND word_3 = ? AND word_1 IN") {
+        let second = static_params.get(0).unwrap();
+        let third = static_params.get(1).unwrap();
+        format!("{} {} {}", varying_param, second, third)
+    } else if query.starts_with("SELECT word_2, freq FROM n_grams.two_grams_1_pk WHERE word_1 = ? AND word_2 IN") {
+        let first = static_params.get(0).unwrap();
+        format!("{} {}", first, varying_param)
+    } else if query.starts_with("SELECT word_1, freq FROM n_grams.two_grams_2_pk WHERE word_2 = ? AND word_1 IN") {
+        let second = static_params.get(0).unwrap();
+        format!("{} {}", varying_param, second)
+    } else if query.starts_with("SELECT * FROM n_grams.one_grams WHERE word IN") {
+        format!("{}", varying_param)
+    } else {
+        panic!("Invalid query: {}", query);
     }
 }

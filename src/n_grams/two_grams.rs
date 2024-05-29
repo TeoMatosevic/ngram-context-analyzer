@@ -2,5 +2,5 @@
 ///
 /// # Modules
 ///
-/// * `routers` - Contains the routers of the two-grams.
+/// * `model` - Contains the model of the two-grams.
 pub mod model;

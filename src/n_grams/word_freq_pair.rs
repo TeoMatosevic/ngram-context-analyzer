@@ -1,5 +1,7 @@
-use super::Queryable;
-use crate::db::{QueryError, QueryFactory};
+use crate::{
+    db::{QueryError, QueryFactory},
+    n_grams::Queryable,
+};
 use futures::stream::StreamExt;
 use scylla::{statement::Consistency, Session};
 use serde::{Deserialize, Serialize};

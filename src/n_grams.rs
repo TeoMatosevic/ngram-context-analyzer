@@ -1,3 +1,8 @@
+/// The `solver` module.
+///
+/// This module contains the implementation of the n-grams solver.
+pub mod solver;
+
 /// The `n_grams` module.
 ///
 /// This module contains the n-grams of the application.

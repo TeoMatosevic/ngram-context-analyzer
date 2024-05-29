@@ -1,11 +1,15 @@
-use super::model::{FromQueryParams, NgramQueryParams, SUPPORTED_N_GRAMS};
-use super::three_grams;
-use super::two_grams;
-use crate::parse_n;
-use crate::{error_handler::HttpError, AppData};
-use actix_web::{get, web, HttpResponse};
-use std::collections::HashMap;
-use std::sync::Arc;
+use crate::{
+    error_handler::HttpError,
+    n_grams::{
+        model::{FromQueryParams, NgramQueryParams, SUPPORTED_N_GRAMS},
+        solver::model::{execute_queries, SolverWithConfusionSet},
+        three_grams, two_grams,
+    },
+    parse_n, AppData,
+};
+use actix_web::{get, post, web, Error, HttpResponse};
+use futures::StreamExt;
+use std::{collections::HashMap, sync::Arc};
 
 /// Handles the n-gram query.
 ///
@@ -18,7 +22,7 @@ use std::sync::Arc;
 ///
 /// * `HttpResponse` - The response.
 #[get("/n-gram")]
-pub async fn get_n_gram(
+async fn get_n_gram(
     query: web::Query<HashMap<String, String>>,
     data: web::Data<AppData>,
 ) -> Result<HttpResponse, HttpError> {
@@ -64,6 +68,46 @@ pub async fn get_n_gram(
     }
 }
 
+/// Handles the text check.
+///
+/// # Arguments
+///
+/// * `payload` - The payload.
+/// * `data` - The application data.
+///
+/// # Returns
+///
+/// * `HttpResponse` - The response.
+///
+/// # Errors
+///
+/// If the payload can not be read, a `HttpResponse` with the error message will be returned.
+/// If the queries can not be executed, a `HttpResponse` with the error message will be returned.
+#[post("/check")]
+async fn check_text(
+    mut payload: web::Payload,
+    data: web::Data<AppData>,
+) -> Result<HttpResponse, Error> {
+    let mut body = web::BytesMut::new();
+
+    while let Some(item) = payload.next().await {
+        body.extend_from_slice(&item?);
+    }
+
+    let obj = match SolverWithConfusionSet::new(body) {
+        Ok(obj) => obj,
+        Err(err) => return Ok(HttpResponse::BadRequest().json(err)),
+    };
+
+    let queries = obj.find_queries();
+
+    let session = Arc::clone(&data.scy_session);
+
+    let result = execute_queries(queries, session).await;
+
+    Ok(HttpResponse::Ok().json(result))
+}
+
 /// Initializes the routes for the n-grams.
 ///
 /// # Arguments
@@ -71,4 +115,5 @@ pub async fn get_n_gram(
 /// * `cfg` - The configuration of the service.
 pub fn init_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(get_n_gram);
+    cfg.service(check_text);
 }
