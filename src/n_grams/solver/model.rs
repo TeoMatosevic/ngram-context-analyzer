@@ -5,7 +5,6 @@ use crate::{
     },
     n_grams::solver::parse_text_to_sentences,
 };
-use actix_web::web::BytesMut;
 use futures::stream::StreamExt;
 use scylla::{statement::Consistency, Session};
 use serde::{Deserialize, Serialize};
@@ -45,29 +44,47 @@ pub struct SolverWithConfusionSet {
     pub text: String,
 }
 
+/// Represents a text extractor.
+///
+/// # Fields
+///
+/// * `text` - The text.
+#[derive(Deserialize, Serialize)]
+pub struct TextExtractor {
+    pub text: String,
+}
+
+/// Represents the queries.
+///
+/// # Fields
+///
+/// * `queries` - The queries.
+/// * `word` - The word.
+pub struct Queries {
+    pub queries: Vec<QueryBuilder>,
+    pub word: String,
+}
+
 impl SolverWithConfusionSet {
     /// Creates a new `SolverWithConfusionSet`.
     ///
     /// # Arguments
     ///
-    /// * `bytes` - The bytes.
+    /// * `text` - The text.
+    /// * `confusion_set` - The confusion set.
     ///
     /// # Returns
     ///
-    /// A `Result` containing the `SolverWithConfusionSet` if the bytes can be deserialized, otherwise a `String` with the error message.
-    ///
-    /// # Errors
-    ///
-    /// If the bytes can not be deserialized, a `String` with the error message will be returned.
-    pub fn new(bytes: BytesMut) -> Result<Self, String> {
-        let obj = match serde_json::from_slice::<SolverWithConfusionSet>(&bytes) {
-            Ok(obj) => obj,
-            Err(err) => {
-                return Err(err.to_string());
-            }
-        };
+    /// A `Result` containing the `SolverWithConfusionSet` if the confusion set is not empty, otherwise a `String` with the error message.
+    pub fn new(text: String, confusion_set: &Vec<Vec<String>>) -> Result<Self, String> {
+        if confusion_set.is_empty() {
+            return Err("Confusion set is empty".to_string());
+        }
 
-        Ok(obj)
+        Ok(Self {
+            confusion_set: confusion_set.clone(),
+            text,
+        })
     }
 
     /// Finds the queries.
@@ -75,7 +92,7 @@ impl SolverWithConfusionSet {
     /// # Returns
     ///
     /// A `HashMap` containing the queries.
-    pub fn find_queries(&self) -> HashMap<String, Vec<QueryBuilder>> {
+    pub fn find_queries(&self) -> HashMap<String, Queries> {
         let sentences = parse_text_to_sentences(&self.text);
         let mut queries = HashMap::new();
 
@@ -106,7 +123,7 @@ fn process_word_in_sentence(
     word: &str,
     words: &[&str],
     confusion_set: &[String],
-    queries: &mut HashMap<String, Vec<QueryBuilder>>,
+    queries: &mut HashMap<String, Queries>,
 ) {
     for (j, &w) in words.iter().enumerate() {
         if w == word {
@@ -130,6 +147,16 @@ fn process_word_in_sentence(
             });
 
             if j >= 1 {
+                if words[j - 1] != words[j - 1].to_lowercase() {
+                    let lowercase_word = words[j - 1].to_lowercase();
+                    add_to_query(
+                        GET_ALL_VARYING_2_2,
+                        &vec![&lowercase_word, words[j]],
+                        &confusion_set,
+                        &mut q,
+                        1,
+                    );
+                }
                 add_to_query(
                     GET_ALL_VARYING_2_2,
                     &words[j - 1..=j],
@@ -139,6 +166,16 @@ fn process_word_in_sentence(
                 );
             }
             if j + 1 < words.len() {
+                if words[j + 1] != words[j + 1].to_lowercase() {
+                    let lowercase_word = words[j + 1].to_lowercase();
+                    add_to_query(
+                        GET_ALL_VARYING_2_1,
+                        &vec![words[j], &lowercase_word],
+                        &confusion_set,
+                        &mut q,
+                        0,
+                    );
+                }
                 add_to_query(
                     GET_ALL_VARYING_2_1,
                     &words[j..=j + 1],
@@ -149,6 +186,19 @@ fn process_word_in_sentence(
             }
 
             if j >= 2 {
+                if words[j - 2] != words[j - 2].to_lowercase()
+                    || words[j - 1] != words[j - 1].to_lowercase()
+                {
+                    let lowercase_word1 = words[j - 2].to_lowercase();
+                    let lowercase_word2 = words[j - 1].to_lowercase();
+                    add_to_query(
+                        GET_ALL_VARYING_3_3,
+                        &vec![&lowercase_word1, &lowercase_word2, words[j]],
+                        &confusion_set,
+                        &mut q,
+                        2,
+                    );
+                }
                 add_to_query(
                     GET_ALL_VARYING_3_3,
                     &words[j - 2..=j],
@@ -158,6 +208,19 @@ fn process_word_in_sentence(
                 );
             }
             if j + 2 < words.len() {
+                if words[j + 1] != words[j + 1].to_lowercase()
+                    || words[j + 2] != words[j + 2].to_lowercase()
+                {
+                    let lowercase_word1 = words[j + 1].to_lowercase();
+                    let lowercase_word2 = words[j + 2].to_lowercase();
+                    add_to_query(
+                        GET_ALL_VARYING_3_1,
+                        &vec![words[j], &lowercase_word1, &lowercase_word2],
+                        &confusion_set,
+                        &mut q,
+                        0,
+                    );
+                }
                 add_to_query(
                     GET_ALL_VARYING_3_1,
                     &words[j..=j + 2],
@@ -167,7 +230,12 @@ fn process_word_in_sentence(
                 );
             }
 
-            queries.insert(context, q);
+            let result = Queries {
+                queries: q,
+                word: word.to_string(),
+            };
+
+            queries.insert(context, result);
         }
     }
 }
@@ -232,10 +300,12 @@ fn add_to_query(
 ///
 /// * `input` - The input.
 /// * `frequency` - The frequency.
+/// * `length` - The length.
 #[derive(Deserialize, Serialize)]
 pub struct QueryResult {
     pub input: String,
     pub frequency: i32,
+    pub length: i32,
 }
 
 /// Represents a sentence result.
@@ -243,10 +313,12 @@ pub struct QueryResult {
 /// # Fields
 ///
 /// * `sentence` - The sentence.
+/// * `word` - The word.
 /// * `results` - The results.
 #[derive(Deserialize, Serialize)]
 pub struct SentenceResult {
     pub sentence: String,
+    pub word: String,
     pub results: Vec<QueryResult>,
 }
 
@@ -273,7 +345,7 @@ pub struct TimedSentenceResults {
 ///
 /// The timed sentence results..
 pub async fn execute_queries(
-    queries: HashMap<String, Vec<QueryBuilder>>,
+    queries: HashMap<String, Queries>,
     session: Arc<Session>,
 ) -> TimedSentenceResults {
     let mut sentence_results: Vec<SentenceResult> = vec![];
@@ -286,8 +358,9 @@ pub async fn execute_queries(
         sentence_results.push(SentenceResult {
             sentence: key.clone(),
             results: vec![],
+            word: value.word,
         });
-        for v in value {
+        for v in value.queries {
             let key = key.clone();
             let query = v.query.clone();
             let values = v.varying_params.clone();
@@ -400,12 +473,14 @@ async fn process(
 
     while let Some(rows) = row_stream.next().await {
         let (word, freq) = rows.unwrap();
+        let input = get_n_gram_string(query, &static_values, word.as_str());
         words_received.push(word.clone());
         tx.send((
             key.clone(),
             QueryResult {
-                input: get_n_gram_string(query, &static_values, word.as_str()),
+                input: input.clone(),
                 frequency: freq,
+                length: input.split_whitespace().count() as i32,
             },
         ))
         .unwrap();
@@ -413,11 +488,13 @@ async fn process(
 
     for word in varying_values {
         if !words_received.contains(&word.to_string()) {
+            let input = get_n_gram_string(query, &static_values, word);
             tx.send((
                 key.clone(),
                 QueryResult {
-                    input: get_n_gram_string(query, &static_values, word),
+                    input: input.clone(),
                     frequency: 0,
+                    length: input.split_whitespace().count() as i32,
                 },
             ))
             .unwrap();
@@ -425,4 +502,17 @@ async fn process(
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_extract_context() {
+        let words = vec!["Krleža", "sve", "oduševio", "svojim", "dijelom"];
+
+        let context = extract_context(4, &words);
+        assert_eq!(context, "oduševio svojim dijelom");
+    }
 }

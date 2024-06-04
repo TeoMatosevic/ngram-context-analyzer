@@ -1,9 +1,11 @@
 use actix_cors::Cors;
 use actix_web::{web::Data, App, HttpServer};
-use context_analyzer::{db, n_grams::routers, AppData};
+use context_analyzer::{
+    db, n_grams::routers, parse_confusion_set, parse_number_of_ngrams, AppData,
+};
 use dotenv::dotenv;
 use listenfd::ListenFd;
-use std::env;
+use std::{env, fs};
 
 /// The main function of the application.
 ///
@@ -30,8 +32,18 @@ async fn main() -> std::io::Result<()> {
         }
     };
 
+    let contents = fs::read_to_string("../confusion_set.txt").expect("Could not read the file");
+
+    let confusion_set: Vec<Vec<String>> = parse_confusion_set(contents);
+
+    let contents = fs::read_to_string("../number_of_ngrams.txt").expect("Could not read the file");
+
+    let number_of_ngrams = parse_number_of_ngrams(contents);
+
     let data = Data::new(AppData {
         scy_session: session,
+        confusion_set,
+        number_of_ngrams,
     });
 
     let mut listenfd = ListenFd::from_env();

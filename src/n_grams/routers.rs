@@ -2,13 +2,19 @@ use crate::{
     error_handler::HttpError,
     n_grams::{
         model::{FromQueryParams, NgramQueryParams, SUPPORTED_N_GRAMS},
-        solver::model::{execute_queries, SolverWithConfusionSet},
+        solver::{
+            model::{execute_queries, SolverWithConfusionSet},
+            predictor::{predict, MaxPredictor},
+        },
         three_grams, two_grams,
     },
-    parse_n, AppData,
+    parse_n, AppData, FormData,
 };
-use actix_web::{get, post, web, Error, HttpResponse};
-use futures::StreamExt;
+use actix_web::{
+    get, post,
+    web::{self, Form},
+    Error, HttpResponse,
+};
 use std::{collections::HashMap, sync::Arc};
 
 /// Handles the n-gram query.
@@ -72,7 +78,7 @@ async fn get_n_gram(
 ///
 /// # Arguments
 ///
-/// * `payload` - The payload.
+/// * `form` - The form data.
 /// * `data` - The application data.
 ///
 /// # Returns
@@ -84,17 +90,10 @@ async fn get_n_gram(
 /// If the payload can not be read, a `HttpResponse` with the error message will be returned.
 /// If the queries can not be executed, a `HttpResponse` with the error message will be returned.
 #[post("/check")]
-async fn check_text(
-    mut payload: web::Payload,
-    data: web::Data<AppData>,
-) -> Result<HttpResponse, Error> {
-    let mut body = web::BytesMut::new();
+async fn check_text(data: web::Data<AppData>, form: Form<FormData>) -> Result<HttpResponse, Error> {
+    let form = form.into_inner();
 
-    while let Some(item) = payload.next().await {
-        body.extend_from_slice(&item?);
-    }
-
-    let obj = match SolverWithConfusionSet::new(body) {
+    let obj = match SolverWithConfusionSet::new(form.text, &data.confusion_set) {
         Ok(obj) => obj,
         Err(err) => return Ok(HttpResponse::BadRequest().json(err)),
     };
@@ -105,7 +104,26 @@ async fn check_text(
 
     let result = execute_queries(queries, session).await;
 
-    Ok(HttpResponse::Ok().json(result))
+    let i = 0;
+
+    let res = match i {
+        0 => {
+            let predictor = MaxPredictor {};
+
+            Ok(predict(
+                predictor,
+                result,
+                data.confusion_set.clone(),
+                data.number_of_ngrams.clone(),
+            ))
+        }
+        _ => Err(HttpError::new(500, "Internal server error".to_string())),
+    };
+
+    match res {
+        Ok(res) => Ok(HttpResponse::Ok().json(res)),
+        Err(err) => Ok(HttpResponse::BadRequest().json(err)),
+    }
 }
 
 /// Initializes the routes for the n-grams.
