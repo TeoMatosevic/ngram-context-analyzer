@@ -32,11 +32,14 @@ async fn main() -> std::io::Result<()> {
         }
     };
 
-    let contents = fs::read_to_string("../confusion_set.txt").expect("Could not read the file");
+    let conf_set_file_path = env::var("CONFUSION_SET_FILE").unwrap();
+    let number_of_ngrams_file_path = env::var("NUMBER_OF_NGRAMS_FILE").unwrap();
+
+    let contents = fs::read_to_string(conf_set_file_path).expect("Could not read the file");
 
     let confusion_set: Vec<Vec<String>> = parse_confusion_set(contents);
 
-    let contents = fs::read_to_string("../number_of_ngrams.txt").expect("Could not read the file");
+    let contents = fs::read_to_string(number_of_ngrams_file_path).expect("Could not read the file");
 
     let number_of_ngrams = parse_number_of_ngrams(contents);
 
