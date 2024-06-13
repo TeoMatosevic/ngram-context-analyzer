@@ -193,7 +193,7 @@ impl VaryingQueryResult {
         let start_time = std::time::Instant::now();
         let (tx, rx) = mpsc::channel();
 
-        let mut handles = vec![];
+        let mut handlers = vec![];
 
         for index in &varying_indexed {
             let s = Arc::clone(&session);
@@ -210,10 +210,10 @@ impl VaryingQueryResult {
                     .unwrap();
                 rt.block_on(process(s, &i, index, tx_clone)).unwrap();
             });
-            handles.push(handle);
+            handlers.push(handle);
         }
 
-        for handle in handles {
+        for handle in handlers {
             handle.join().unwrap();
         }
 

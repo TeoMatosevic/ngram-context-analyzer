@@ -34,6 +34,7 @@ async fn main() -> std::io::Result<()> {
 
     let conf_set_file_path = env::var("CONFUSION_SET_FILE").unwrap();
     let number_of_ngrams_file_path = env::var("NUMBER_OF_NGRAMS_FILE").unwrap();
+    let number_of_distinct_ngrams_file_path = env::var("NUMBER_OF_DISTINCT_NGRAMS_FILE").unwrap();
 
     let contents = fs::read_to_string(conf_set_file_path).expect("Could not read the file");
 
@@ -43,10 +44,16 @@ async fn main() -> std::io::Result<()> {
 
     let number_of_ngrams = parse_number_of_ngrams(contents);
 
+    let contents =
+        fs::read_to_string(number_of_distinct_ngrams_file_path).expect("Could not read the file");
+
+    let number_of_distinct_ngrams = parse_number_of_ngrams(contents);
+
     let data = Data::new(AppData {
         scy_session: session,
         confusion_set,
         number_of_ngrams,
+        number_of_distinct_ngrams,
     });
 
     let mut listenfd = ListenFd::from_env();

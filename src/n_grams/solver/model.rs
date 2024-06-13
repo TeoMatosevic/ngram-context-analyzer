@@ -100,7 +100,7 @@ impl SolverWithConfusionSet {
             let words: Vec<&str> = sentence.split_whitespace().collect();
             for confusion_set in &self.confusion_set {
                 for word in confusion_set {
-                    if sentence.contains(word) {
+                    if sentence.to_lowercase().contains(word) {
                         process_word_in_sentence(word, &words, confusion_set, &mut queries);
                     }
                 }
@@ -126,7 +126,7 @@ fn process_word_in_sentence(
     queries: &mut HashMap<String, Queries>,
 ) {
     for (j, &w) in words.iter().enumerate() {
-        if w == word {
+        if w.to_lowercase() == word.to_lowercase() {
             let context = extract_context(j, words);
 
             if queries.get(&context).is_some() {
@@ -350,7 +350,7 @@ pub async fn execute_queries(
 ) -> TimedSentenceResults {
     let mut sentence_results: Vec<SentenceResult> = vec![];
     let (tx, rx) = mpsc::channel();
-    let mut handles = vec![];
+    let mut handlers = vec![];
 
     let start = std::time::Instant::now();
 
@@ -383,11 +383,11 @@ pub async fn execute_queries(
                 .unwrap();
             });
 
-            handles.push(handle);
+            handlers.push(handle);
         }
     }
 
-    for handle in handles {
+    for handle in handlers {
         handle.await.unwrap();
     }
 

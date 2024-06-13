@@ -4,7 +4,7 @@ use crate::{
         model::{FromQueryParams, NgramQueryParams, SUPPORTED_N_GRAMS},
         solver::{
             model::{execute_queries, SolverWithConfusionSet},
-            predictor::{predict, MaxPredictor},
+            predictor::{predict, MaxPredictor, PowerSumPredictor, SumPredictor},
         },
         three_grams, two_grams,
     },
@@ -115,6 +115,29 @@ async fn check_text(data: web::Data<AppData>, form: Form<FormData>) -> Result<Ht
                 result,
                 data.confusion_set.clone(),
                 data.number_of_ngrams.clone(),
+                data.number_of_distinct_ngrams.clone(),
+            ))
+        }
+        1 => {
+            let predictor = SumPredictor {};
+
+            Ok(predict(
+                predictor,
+                result,
+                data.confusion_set.clone(),
+                data.number_of_ngrams.clone(),
+                data.number_of_distinct_ngrams.clone(),
+            ))
+        }
+        2 => {
+            let predictor = PowerSumPredictor { power: 0.5 };
+
+            Ok(predict(
+                predictor,
+                result,
+                data.confusion_set.clone(),
+                data.number_of_ngrams.clone(),
+                data.number_of_distinct_ngrams.clone(),
             ))
         }
         _ => Err(HttpError::new(500, "Internal server error".to_string())),

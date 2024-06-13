@@ -21,12 +21,14 @@ pub mod n_grams;
 /// * `scy_session` - The ScyllaDB session.
 /// * `confusion_set` - The confusion set.
 /// * `number_of_ngrams` - The number of n-grams.
+/// * `number_of_distinct_ngrams` - The number of distinct n-grams.
 ///
 /// This struct is used to store the application data.
 pub struct AppData {
     pub scy_session: Arc<scylla::Session>,
     pub confusion_set: Vec<Vec<String>>,
     pub number_of_ngrams: HashMap<i32, i64>,
+    pub number_of_distinct_ngrams: HashMap<i32, i64>,
 }
 
 /// Represents the form data.
